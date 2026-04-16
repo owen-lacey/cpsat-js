@@ -1,0 +1,58 @@
+{
+  "name": "cpsat-js",
+  "version": "0.1.0-beta.0",
+  "description": "WebAssembly port of Google OR-Tools CP-SAT constraint programming solver",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./cpsat.wasm": "./build/cpsat.wasm"
+  },
+  "files": [
+    "dist/",
+    "build/cpsat.cjs",
+    "build/cpsat.wasm"
+  ],
+  "scripts": {
+    "build:wasm": "./build.sh",
+    "build:proto": "npx buf generate src/proto",
+    "build:ts": "tsc",
+    "build": "npm run build:proto && npm run build:ts",
+    "test": "vitest run",
+    "test:unit": "vitest run test/unit",
+    "test:integration": "vitest run test/integration"
+  },
+  "keywords": [
+    "or-tools",
+    "cp-sat",
+    "constraint-programming",
+    "optimization",
+    "solver",
+    "wasm",
+    "webassembly"
+  ],
+  "author": "owen-lacey",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/owen-lacey/ortools-wasm.git"
+  },
+  "homepage": "https://github.com/owen-lacey/ortools-wasm#readme",
+  "bugs": {
+    "url": "https://github.com/owen-lacey/ortools-wasm/issues"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.0.0"
+  },
+  "devDependencies": {
+    "@bufbuild/buf": "^1.47.0",
+    "@bufbuild/protoc-gen-es": "^2.0.0",
+    "@types/node": "^25.6.0",
+    "typescript": "^5.6.0",
+    "vitest": "^3.0.0"
+  }
+}

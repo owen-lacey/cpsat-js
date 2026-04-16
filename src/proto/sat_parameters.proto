@@ -1,0 +1,1925 @@
+// Copyright 2010-2025 Google LLC
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// LINT: LEGACY_NAMES
+syntax = "proto2";
+
+package operations_research.sat;
+
+option csharp_namespace = "Google.OrTools.Sat";
+option go_package = "github.com/google/or-tools/ortools/sat/proto/satparameters";
+option java_package = "com.google.ortools.sat";
+option java_multiple_files = true;
+
+// Contains the definitions for all the sat algorithm parameters and their
+// default values.
+//
+// NEXT TAG: 356
+message SatParameters {
+  // In some context, like in a portfolio of search, it makes sense to name a
+  // given parameters set for logging purpose.
+  optional string name = 171 [default = ""];
+
+  // ==========================================================================
+  // Branching and polarity
+  // ==========================================================================
+
+  // Variables without activity (i.e. at the beginning of the search) will be
+  // tried in this preferred order.
+  enum VariableOrder {
+    IN_ORDER = 0;  // As specified by the problem.
+    IN_REVERSE_ORDER = 1;
+    IN_RANDOM_ORDER = 2;
+  }
+  optional VariableOrder preferred_variable_order = 1 [default = IN_ORDER];
+
+  // Specifies the initial polarity (true/false) when the solver branches on a
+  // variable. This can be modified later by the user, or the phase saving
+  // heuristic.
+  //
+  // Note(user): POLARITY_FALSE is usually a good choice because of the
+  // "natural" way to express a linear boolean problem.
+  enum Polarity {
+    POLARITY_TRUE = 0;
+    POLARITY_FALSE = 1;
+    POLARITY_RANDOM = 2;
+  }
+  optional Polarity initial_polarity = 2 [default = POLARITY_FALSE];
+
+  // If this is true, then the polarity of a variable will be the last value it
+  // was assigned to, or its default polarity if it was never assigned since the
+  // call to ResetDecisionHeuristic().
+  //
+  // Actually, we use a newer version where we follow the last value in the
+  // longest non-conflicting partial assignment in the current phase.
+  //
+  // This is called 'literal phase saving'. For details see 'A Lightweight
+  // Component Caching Scheme for Satisfiability Solvers' K. Pipatsrisawat and
+  // A.Darwiche, In 10th International Conference on Theory and Applications of
+  // Satisfiability Testing, 2007.
+  optional bool use_phase_saving = 44 [default = true];
+
+  // If non-zero, then we change the polarity heuristic after that many number
+  // of conflicts in an arithmetically increasing fashion. So x the first time,
+  // 2 * x the second time, etc...
+  optional int32 polarity_rephase_increment = 168 [default = 1000];
+
+  // If true and we have first solution LS workers, tries in some phase to
+  // follow a LS solutions that violates has litle constraints as possible.
+  optional bool polarity_exploit_ls_hints = 309 [default = false];
+
+  // The proportion of polarity chosen at random. Note that this take
+  // precedence over the phase saving heuristic. This is different from
+  // initial_polarity:POLARITY_RANDOM because it will select a new random
+  // polarity each time the variable is branched upon instead of selecting one
+  // initially and then always taking this choice.
+  optional double random_polarity_ratio = 45 [default = 0.0];
+
+  // A number between 0 and 1 that indicates the proportion of branching
+  // variables that are selected randomly instead of choosing the first variable
+  // from the given variable_ordering strategy.
+  optional double random_branches_ratio = 32 [default = 0.0];
+
+  // Whether we use the ERWA (Exponential Recency Weighted Average) heuristic as
+  // described in "Learning Rate Based Branching Heuristic for SAT solvers",
+  // J.H.Liang, V. Ganesh, P. Poupart, K.Czarnecki, SAT 2016.
+  optional bool use_erwa_heuristic = 75 [default = false];
+
+  // The initial value of the variables activity. A non-zero value only make
+  // sense when use_erwa_heuristic is true. Experiments with a value of 1e-2
+  // together with the ERWA heuristic showed slighthly better result than simply
+  // using zero. The idea is that when the "learning rate" of a variable becomes
+  // lower than this value, then we prefer to branch on never explored before
+  // variables. This is not in the ERWA paper.
+  optional double initial_variables_activity = 76 [default = 0.0];
+
+  // When this is true, then the variables that appear in any of the reason of
+  // the variables in a conflict have their activity bumped. This is addition to
+  // the variables in the conflict, and the one that were used during conflict
+  // resolution.
+  optional bool also_bump_variables_in_conflict_reasons = 77 [default = false];
+
+  // ==========================================================================
+  // Conflict analysis
+  // ==========================================================================
+
+  // Do we try to minimize conflicts (greedily) when creating them.
+  enum ConflictMinimizationAlgorithm {
+    reserved 3;
+    NONE = 0;
+    SIMPLE = 1;
+    RECURSIVE = 2;
+  }
+  optional ConflictMinimizationAlgorithm minimization_algorithm = 4
+      [default = RECURSIVE];
+
+  // Whether to expoit the binary clause to minimize learned clauses further.
+  enum BinaryMinizationAlgorithm {
+    reserved 2, 3, 4;
+    NO_BINARY_MINIMIZATION = 0;
+    BINARY_MINIMIZATION_FROM_UIP = 1;
+    BINARY_MINIMIZATION_FROM_UIP_AND_DECISIONS = 5;
+  }
+  optional BinaryMinizationAlgorithm binary_minimization_algorithm = 34
+      [default = BINARY_MINIMIZATION_FROM_UIP_AND_DECISIONS];
+
+  // At a really low cost, during the 1-UIP conflict computation, it is easy to
+  // detect if some of the involved reasons are subsumed by the current
+  // conflict. When this is true, such clauses are detached and later removed
+  // from the problem.
+  optional bool subsumption_during_conflict_analysis = 56 [default = true];
+
+  // It is possible that "intermediate" clauses during conflict resolution
+  // subsumes some of the clauses that propagated. This is quite cheap to detect
+  // and result in more subsumption/strengthening of clauses.
+  optional bool extra_subsumption_during_conflict_analysis = 351
+      [default = true];
+
+  // Try even more subsumption options during conflict analysis.
+  optional bool decision_subsumption_during_conflict_analysis = 353
+      [default = true];
+
+  // If >=0, each time we have a conflict, we try to subsume the last n learned
+  // clause with it.
+  optional int32 eagerly_subsume_last_n_conflicts = 343 [default = 4];
+
+  // If we remove clause that we now are "implied" by others. Note that this
+  // might not always be good as we might loose some propagation power.
+  optional bool subsume_during_vivification = 355 [default = true];
+
+  // If true, try to backtrack as little as possible on conflict and re-imply
+  // the clauses later.
+  // This means we discard less propagation than traditional backjumping, but
+  // requites additional bookkeeping to handle reimplication.
+  // See: https://doi.org/10.1007/978-3-319-94144-8_7
+  optional bool use_chronological_backtracking = 330 [default = false];
+
+  // If chronological backtracking is enabled, this is the maximum number of
+  // levels we will backjump over, otherwise we will backtrack.
+  optional int32 max_backjump_levels = 331 [default = 50];
+
+  // If chronological backtracking is enabled, this is the minimum number of
+  // conflicts before we will consider backjumping.
+  optional int32 chronological_backtrack_min_conflicts = 332 [default = 1000];
+
+  // ==========================================================================
+  // Clause database management
+  // ==========================================================================
+
+  // Trigger a cleanup when this number of "deletable" clauses is learned.
+  optional int32 clause_cleanup_period = 11 [default = 10000];
+
+  // Increase clause_cleanup_period by this amount after each cleanup.
+  optional int32 clause_cleanup_period_increment = 337 [default = 0];
+
+  // During a cleanup, we will always keep that number of "deletable" clauses.
+  // Note that this doesn't include the "protected" clauses.
+  optional int32 clause_cleanup_target = 13 [default = 0];
+
+  // During a cleanup, if clause_cleanup_target is 0, we will delete the
+  // clause_cleanup_ratio of "deletable" clauses instead of aiming for a fixed
+  // target of clauses to keep.
+  optional double clause_cleanup_ratio = 190 [default = 0.5];
+
+  // All the clauses with a LBD (literal blocks distance) lower or equal to this
+  // parameters will always be kept.
+  //
+  // Note that the LBD of a clause that just propagated is 1 + number of
+  // different decision levels of its literals. So that the "classic" LBD of a
+  // learned conflict is the same as its LBD when we backjump and then propagate
+  // it.
+  optional int32 clause_cleanup_lbd_bound = 59 [default = 5];
+
+  // All the clause with a LBD lower or equal to this will be kept except if
+  // its activity hasn't been bumped in the last 32 cleanup phase. Note that
+  // this has no effect if it is <= clause_cleanup_lbd_bound.
+  optional int32 clause_cleanup_lbd_tier1 = 349 [default = 0];
+
+  // All the clause with a LBD lower or equal to this will be kept except if its
+  // activity hasn't been bumped since the previous cleanup phase. Note that
+  // this has no effect if it is <= clause_cleanup_lbd_bound or <=
+  // clause_cleanup_lbd_tier1.
+  optional int32 clause_cleanup_lbd_tier2 = 350 [default = 0];
+
+  // The clauses that will be kept during a cleanup are the ones that come
+  // first under this order. We always keep or exclude ties together.
+  enum ClauseOrdering {
+    // Order clause by decreasing activity, then by increasing LBD.
+    CLAUSE_ACTIVITY = 0;
+    // Order clause by increasing LBD, then by decreasing activity.
+    CLAUSE_LBD = 1;
+  }
+  optional ClauseOrdering clause_cleanup_ordering = 60
+      [default = CLAUSE_ACTIVITY];
+
+  // Same as for the clauses, but for the learned pseudo-Boolean constraints.
+  optional int32 pb_cleanup_increment = 46 [default = 200];
+  optional double pb_cleanup_ratio = 47 [default = 0.5];
+
+  // ==========================================================================
+  // Variable and clause activities
+  // ==========================================================================
+
+  // Each time a conflict is found, the activities of some variables are
+  // increased by one. Then, the activity of all variables are multiplied by
+  // variable_activity_decay.
+  //
+  // To implement this efficiently, the activity of all the variables is not
+  // decayed at each conflict. Instead, the activity increment is multiplied by
+  // 1 / decay. When an activity reach max_variable_activity_value, all the
+  // activity are multiplied by 1 / max_variable_activity_value.
+  optional double variable_activity_decay = 15 [default = 0.8];
+  optional double max_variable_activity_value = 16 [default = 1e100];
+
+  // The activity starts at 0.8 and increment by 0.01 every 5000 conflicts until
+  // 0.95. This "hack" seems to work well and comes from:
+  //
+  // Glucose 2.3 in the SAT 2013 Competition - SAT Competition 2013
+  // http://edacc4.informatik.uni-ulm.de/SC13/solver-description-download/136
+  optional double glucose_max_decay = 22 [default = 0.95];
+  optional double glucose_decay_increment = 23 [default = 0.01];
+  optional int32 glucose_decay_increment_period = 24 [default = 5000];
+
+  // Clause activity parameters (same effect as the one on the variables).
+  optional double clause_activity_decay = 17 [default = 0.999];
+  optional double max_clause_activity_value = 18 [default = 1e20];
+
+  // ==========================================================================
+  // Restart
+  // ==========================================================================
+
+  // Restart algorithms.
+  //
+  // A reference for the more advanced ones is:
+  // Gilles Audemard, Laurent Simon, "Refining Restarts Strategies for SAT
+  // and UNSAT", Principles and Practice of Constraint Programming Lecture
+  // Notes in Computer Science 2012, pp 118-126
+  enum RestartAlgorithm {
+    NO_RESTART = 0;
+
+    // Just follow a Luby sequence times restart_period.
+    LUBY_RESTART = 1;
+
+    // Moving average restart based on the decision level of conflicts.
+    DL_MOVING_AVERAGE_RESTART = 2;
+
+    // Moving average restart based on the LBD of conflicts.
+    LBD_MOVING_AVERAGE_RESTART = 3;
+
+    // Fixed period restart every restart period.
+    FIXED_RESTART = 4;
+  }
+
+  // The restart strategies will change each time the strategy_counter is
+  // increased. The current strategy will simply be the one at index
+  // strategy_counter modulo the number of strategy. Note that if this list
+  // includes a NO_RESTART, nothing will change when it is reached because the
+  // strategy_counter will only increment after a restart.
+  //
+  // The idea of switching of search strategy tailored for SAT/UNSAT comes from
+  // Chanseok Oh with his COMiniSatPS solver, see http://cs.nyu.edu/~chanseok/.
+  // But more generally, it seems REALLY beneficial to try different strategy.
+  repeated RestartAlgorithm restart_algorithms = 61;
+  optional string default_restart_algorithms = 70
+      [default =
+           "LUBY_RESTART,LBD_MOVING_AVERAGE_RESTART,DL_MOVING_AVERAGE_RESTART"];
+
+  // Restart period for the FIXED_RESTART strategy. This is also the multiplier
+  // used by the LUBY_RESTART strategy.
+  optional int32 restart_period = 30 [default = 50];
+
+  // Size of the window for the moving average restarts.
+  optional int32 restart_running_window_size = 62 [default = 50];
+
+  // In the moving average restart algorithms, a restart is triggered if the
+  // window average times this ratio is greater that the global average.
+  optional double restart_dl_average_ratio = 63 [default = 1.0];
+  optional double restart_lbd_average_ratio = 71 [default = 1.0];
+
+  // Block a moving restart algorithm if the trail size of the current conflict
+  // is greater than the multiplier times the moving average of the trail size
+  // at the previous conflicts.
+  optional bool use_blocking_restart = 64 [default = false];
+  optional int32 blocking_restart_window_size = 65 [default = 5000];
+  optional double blocking_restart_multiplier = 66 [default = 1.4];
+
+  // After each restart, if the number of conflict since the last strategy
+  // change is greater that this, then we increment a "strategy_counter" that
+  // can be use to change the search strategy used by the following restarts.
+  optional int32 num_conflicts_before_strategy_changes = 68 [default = 0];
+
+  // The parameter num_conflicts_before_strategy_changes is increased by that
+  // much after each strategy change.
+  optional double strategy_change_increase_ratio = 69 [default = 0.0];
+
+  // ==========================================================================
+  // Limits
+  // ==========================================================================
+
+  // Maximum time allowed in seconds to solve a problem.
+  // The counter will starts at the beginning of the Solve() call.
+  optional double max_time_in_seconds = 36 [default = inf];
+
+  // Maximum time allowed in deterministic time to solve a problem.
+  // The deterministic time should be correlated with the real time used by the
+  // solver, the time unit being as close as possible to a second.
+  optional double max_deterministic_time = 67 [default = inf];
+
+  // Stops after that number of batches has been scheduled. This only make sense
+  // when interleave_search is true.
+  optional int32 max_num_deterministic_batches = 291 [default = 0];
+
+  // Maximum number of conflicts allowed to solve a problem.
+  //
+  // TODO(user): Maybe change the way the conflict limit is enforced?
+  // currently it is enforced on each independent internal SAT solve, rather
+  // than on the overall number of conflicts across all solves. So in the
+  // context of an optimization problem, this is not really usable directly by a
+  // client.
+  optional int64 max_number_of_conflicts = 37
+      [default = 0x7FFFFFFFFFFFFFFF];  // kint64max
+
+  // Maximum memory allowed for the whole thread containing the solver. The
+  // solver will abort as soon as it detects that this limit is crossed. As a
+  // result, this limit is approximative, but usually the solver will not go too
+  // much over.
+  //
+  // TODO(user): This is only used by the pure SAT solver, generalize to CP-SAT.
+  optional int64 max_memory_in_mb = 40 [default = 10000];
+
+  // Stop the search when the gap between the best feasible objective (O) and
+  // our best objective bound (B) is smaller than a limit.
+  // The exact definition is:
+  // - Absolute: abs(O - B)
+  // - Relative: abs(O - B) / max(1, abs(O)).
+  //
+  // Important: The relative gap depends on the objective offset! If you
+  // artificially shift the objective, you will get widely different value of
+  // the relative gap.
+  //
+  // Note that if the gap is reached, the search status will be OPTIMAL. But
+  // one can check the best objective bound to see the actual gap.
+  //
+  // If the objective is integer, then any absolute gap < 1 will lead to a true
+  // optimal. If the objective is floating point, a gap of zero make little
+  // sense so is is why we use a non-zero default value. At the end of the
+  // search, we will display a warning if OPTIMAL is reported yet the gap is
+  // greater than this absolute gap.
+  optional double absolute_gap_limit = 159 [default = 1e-4];
+  optional double relative_gap_limit = 160 [default = 0.0];
+
+  // ==========================================================================
+  // Other parameters
+  // ==========================================================================
+
+  // At the beginning of each solve, the random number generator used in some
+  // part of the solver is reinitialized to this seed. If you change the random
+  // seed, the solver may make different choices during the solving process.
+  //
+  // For some problems, the running time may vary a lot depending on small
+  // change in the solving algorithm. Running the solver with different seeds
+  // enables to have more robust benchmarks when evaluating new features.
+  optional int32 random_seed = 31 [default = 1];
+
+  // This is mainly here to test the solver variability. Note that in tests, if
+  // not explicitly set to false, all 3 options will be set to true so that
+  // clients do not rely on the solver returning a specific solution if they are
+  // many equivalent optimal solutions.
+  optional bool permute_variable_randomly = 178 [default = false];
+  optional bool permute_presolve_constraint_order = 179 [default = false];
+  optional bool use_absl_random = 180 [default = false];
+
+  // Whether the solver should log the search progress. This is the maing
+  // logging parameter and if this is false, none of the logging (callbacks,
+  // log_to_stdout, log_to_response, ...) will do anything.
+  optional bool log_search_progress = 41 [default = false];
+
+  // Whether the solver should display per sub-solver search statistics.
+  // This is only useful is log_search_progress is set to true, and if the
+  // number of search workers is > 1. Note that in all case we display a bit
+  // of stats with one line per subsolver.
+  optional bool log_subsolver_statistics = 189 [default = false];
+
+  // Add a prefix to all logs.
+  optional string log_prefix = 185 [default = ""];
+
+  // Log to stdout.
+  optional bool log_to_stdout = 186 [default = true];
+
+  // Log to response proto.
+  optional bool log_to_response = 187 [default = false];
+
+  // Experimental.
+  //
+  // This is an old experiment, it might cause crashes in multi-thread and you
+  // should double check the solver result. It can still be used if you only
+  // care about feasible solutions (these are checked) and it gives good result
+  // on your problem. We might revive it at some point.
+  //
+  // Whether to use pseudo-Boolean resolution to analyze a conflict. Note that
+  // this option only make sense if your problem is modelized using
+  // pseudo-Boolean constraints. If you only have clauses, this shouldn't change
+  // anything (except slow the solver down).
+  optional bool use_pb_resolution = 43 [default = false];
+
+  // A different algorithm during PB resolution. It minimizes the number of
+  // calls to ReduceCoefficients() which can be time consuming. However, the
+  // search space will be different and if the coefficients are large, this may
+  // lead to integer overflows that could otherwise be prevented.
+  optional bool minimize_reduction_during_pb_resolution = 48 [default = false];
+
+  // Whether or not the assumption levels are taken into account during the LBD
+  // computation. According to the reference below, not counting them improves
+  // the solver in some situation. Note that this only impact solves under
+  // assumptions.
+  //
+  // Gilles Audemard, Jean-Marie Lagniez, Laurent Simon, "Improving Glucose for
+  // Incremental SAT Solving with Assumptions: Application to MUS Extraction"
+  // Theory and Applications of Satisfiability Testing - SAT 2013, Lecture Notes
+  // in Computer Science Volume 7962, 2013, pp 309-317.
+  optional bool count_assumption_levels_in_lbd = 49 [default = true];
+
+  // ==========================================================================
+  // Presolve
+  // ==========================================================================
+
+  // During presolve, only try to perform the bounded variable elimination (BVE)
+  // of a variable x if the number of occurrences of x times the number of
+  // occurrences of not(x) is not greater than this parameter.
+  optional int32 presolve_bve_threshold = 54 [default = 500];
+
+  // Internal parameter. During BVE, if we eliminate a variable x, by default we
+  // will push all clauses containing x and all clauses containing not(x) to the
+  // postsolve. However, it is possible to write the postsolve code so that only
+  // one such set is needed. The idea is that, if we push the set containing a
+  // literal l, is to set l to false except if it is needed to satisfy one of
+  // the clause in the set. This is always beneficial, but for historical
+  // reason, not all our postsolve algorithm support this.
+  optional bool filter_sat_postsolve_clauses = 324 [default = false];
+
+  // During presolve, we apply BVE only if this weight times the number of
+  // clauses plus the number of clause literals is not increased.
+  optional int32 presolve_bve_clause_weight = 55 [default = 3];
+
+  // The maximum "deterministic" time limit to spend in probing. A value of
+  // zero will disable the probing.
+  //
+  // TODO(user): Clean up. The first one is used in CP-SAT, the other in pure
+  // SAT presolve.
+  optional double probing_deterministic_time_limit = 226 [default = 1.0];
+  optional double presolve_probing_deterministic_time_limit = 57
+      [default = 30.0];
+
+  // Whether we use an heuristic to detect some basic case of blocked clause
+  // in the SAT presolve.
+  optional bool presolve_blocked_clause = 88 [default = true];
+
+  // Whether or not we use Bounded Variable Addition (BVA) in the presolve.
+  optional bool presolve_use_bva = 72 [default = true];
+
+  // Apply Bounded Variable Addition (BVA) if the number of clauses is reduced
+  // by stricly more than this threshold. The algorithm described in the paper
+  // uses 0, but quick experiments showed that 1 is a good value. It may not be
+  // worth it to add a new variable just to remove one clause.
+  optional int32 presolve_bva_threshold = 73 [default = 1];
+
+  // In case of large reduction in a presolve iteration, we perform multiple
+  // presolve iterations. This parameter controls the maximum number of such
+  // presolve iterations.
+  optional int32 max_presolve_iterations = 138 [default = 3];
+
+  // Whether we presolve the cp_model before solving it.
+  optional bool cp_model_presolve = 86 [default = true];
+
+  // How much effort do we spend on probing. 0 disables it completely.
+  optional int32 cp_model_probing_level = 110 [default = 2];
+
+  // Whether we also use the sat presolve when cp_model_presolve is true.
+  optional bool cp_model_use_sat_presolve = 93 [default = true];
+
+  // If we try to load at most ones and exactly ones constraints when running
+  // the pure SAT presolve. Or if we just ignore them.
+  //
+  // If one detects at_most_one via merge_at_most_one_work_limit or exactly one
+  // with find_clauses_that_are_exactly_one, it might be good to also set this
+  // to true.
+  optional bool load_at_most_ones_in_sat_presolve = 335 [default = false];
+
+  // If cp_model_presolve is true and there is a large proportion of fixed
+  // variable after the first model copy, remap all the model to a dense set of
+  // variable before the full presolve even starts. This should help for LNS on
+  // large models.
+  optional bool remove_fixed_variables_early = 310 [default = true];
+
+  // If true, we detect variable that are unique to a table constraint and only
+  // there to encode a cost on each tuple. This is usually the case when a WCSP
+  // (weighted constraint program) is encoded into CP-SAT format.
+  //
+  // This can lead to a dramatic speed-up for such problems but is still
+  // experimental at this point.
+  optional bool detect_table_with_cost = 216 [default = false];
+
+  // How much we try to "compress" a table constraint. Compressing more leads to
+  // less Booleans and faster propagation but can reduced the quality of the lp
+  // relaxation. Values goes from 0 to 3 where we always try to fully compress a
+  // table. At 2, we try to automatically decide if it is worth it.
+  optional int32 table_compression_level = 217 [default = 2];
+
+  // If true, expand all_different constraints that are not permutations.
+  // Permutations (#Variables = #Values) are always expanded.
+  optional bool expand_alldiff_constraints = 170 [default = false];
+
+  // Max domain size for all_different constraints to be expanded.
+  optional int32 max_alldiff_domain_size = 320 [default = 256];
+
+  // If true, expand the reservoir constraints by creating booleans for all
+  // possible precedences between event and encoding the constraint.
+  optional bool expand_reservoir_constraints = 182 [default = true];
+
+  // Max domain size for expanding linear2 constraints (ax + by ==/!= c).
+  optional int32 max_domain_size_for_linear2_expansion = 340 [default = 8];
+
+  // Mainly useful for testing.
+  //
+  // If this and expand_reservoir_constraints is true, we use a different
+  // encoding of the reservoir constraint using circuit instead of precedences.
+  // Note that this is usually slower, but can exercise different part of the
+  // solver. Note that contrary to the precedence encoding, this easily support
+  // variable demands.
+  //
+  // WARNING: with this encoding, the constraint takes a slightly different
+  // meaning. There must exist a permutation of the events occurring at the same
+  // time such that the level is within the reservoir after each of these events
+  // (in this permuted order). So we cannot have +100 and -100 at the same time
+  // if the level must be between 0 and 10 (as authorized by the reservoir
+  // constraint).
+  optional bool expand_reservoir_using_circuit = 288 [default = false];
+
+  // Encore cumulative with fixed demands and capacity as a reservoir
+  // constraint. The only reason you might want to do that is to test the
+  // reservoir propagation code!
+  optional bool encode_cumulative_as_reservoir = 287 [default = false];
+
+  // If the number of expressions in the lin_max is less that the max size
+  // parameter, model expansion replaces target = max(xi) by linear constraint
+  // with the introduction of new booleans bi such that bi => target == xi.
+  //
+  // This is mainly for experimenting compared to a custom lin_max propagator.
+  optional int32 max_lin_max_size_for_expansion = 280 [default = 0];
+
+  // If true, it disable all constraint expansion.
+  // This should only be used to test the presolve of expanded constraints.
+  optional bool disable_constraint_expansion = 181 [default = false];
+
+  // Linear constraint with a complex right hand side (more than a single
+  // interval) need to be expanded, there is a couple of way to do that.
+  optional bool encode_complex_linear_constraint_with_integer = 223
+      [default = false];
+
+  // During presolve, we use a maximum clique heuristic to merge together
+  // no-overlap constraints or at most one constraints. This code can be slow,
+  // so we have a limit in place on the number of explored nodes in the
+  // underlying graph. The internal limit is an int64, but we use double here to
+  // simplify manual input.
+  optional double merge_no_overlap_work_limit = 145 [default = 1e12];
+  optional double merge_at_most_one_work_limit = 146 [default = 1e8];
+
+  // How much substitution (also called free variable aggregation in MIP
+  // litterature) should we perform at presolve. This currently only concerns
+  // variable appearing only in linear constraints. For now the value 0 turns it
+  // off and any positive value performs substitution.
+  optional int32 presolve_substitution_level = 147 [default = 1];
+
+  // If true, we will extract from linear constraints, enforcement literals of
+  // the form "integer variable at bound => simplified constraint". This should
+  // always be beneficial except that we don't always handle them as efficiently
+  // as we could for now. This causes problem on manna81.mps (LP relaxation not
+  // as tight it seems) and on neos-3354841-apure.mps.gz (too many literals
+  // created this way).
+  optional bool presolve_extract_integer_enforcement = 174 [default = false];
+
+  // A few presolve operations involve detecting constraints included in other
+  // constraint. Since there can be a quadratic number of such pairs, and
+  // processing them usually involve scanning them, the complexity of these
+  // operations can be big. This enforce a local deterministic limit on the
+  // number of entries scanned. Default is 1e8.
+  //
+  // A value of zero will disable these presolve rules completely.
+  optional int64 presolve_inclusion_work_limit = 201 [default = 100000000];
+
+  // If true, we don't keep names in our internal copy of the user given model.
+  optional bool ignore_names = 202 [default = true];
+
+  // Run a max-clique code amongst all the x != y we can find and try to infer
+  // set of variables that are all different. This allows to close neos16.mps
+  // for instance. Note that we only run this code if there is no all_diff
+  // already in the model so that if a user want to add some all_diff, we assume
+  // it is well done and do not try to add more.
+  //
+  // This will also detect and add no_overlap constraints, if all the relations
+  // x != y have "offsets" between them. I.e. x > y + offset.
+  optional bool infer_all_diffs = 233 [default = true];
+
+  // Try to find large "rectangle" in the linear constraint matrix with
+  // identical lines. If such rectangle is big enough, we can introduce a new
+  // integer variable corresponding to the common expression and greatly reduce
+  // the number of non-zero.
+  optional bool find_big_linear_overlap = 234 [default = true];
+
+  // By propagating (or just using binary clauses), one can detect that all
+  // literal of a clause are actually in at most one relationship. Thus this
+  // constraint can be promoted to an exactly one constraints. This should help
+  // as it convey more structure. Note that this is expensive, so we have a
+  // deterministic limit in place.
+  optional bool find_clauses_that_are_exactly_one = 333 [default = true];
+
+  // ==========================================================================
+  // Inprocessing
+  // ==========================================================================
+
+  // Enable or disable "inprocessing" which is some SAT presolving done at
+  // each restart to the root level.
+  optional bool use_sat_inprocessing = 163 [default = true];
+
+  // Proportion of deterministic time we should spend on inprocessing.
+  // At each "restart", if the proportion is below this ratio, we will do some
+  // inprocessing, otherwise, we skip it for this restart.
+  optional double inprocessing_dtime_ratio = 273 [default = 0.2];
+
+  // The amount of dtime we should spend on probing for each inprocessing round.
+  optional double inprocessing_probing_dtime = 274 [default = 1.0];
+
+  // Parameters for an heuristic similar to the one described in "An effective
+  // learnt clause minimization approach for CDCL Sat Solvers",
+  // https://www.ijcai.org/proceedings/2017/0098.pdf
+  //
+  // This is the amount of dtime we should spend on this technique during each
+  // inprocessing phase.
+  //
+  // The minimization technique is the same as the one used to minimize core in
+  // max-sat. We also minimize problem clauses and not just the learned clause
+  // that we keep forever like in the paper.
+  optional double inprocessing_minimization_dtime = 275 [default = 1.0];
+  optional bool inprocessing_minimization_use_conflict_analysis = 297
+      [default = true];
+  optional bool inprocessing_minimization_use_all_orderings = 298
+      [default = false];
+
+  // Whether we use the algorithm described in "Clausal Congruence closure",
+  // Armin Biere, Katalin Fazekas, Mathias Fleury, Nils Froleyks, 2024.
+  //
+  // Note that we only have a basic version currently.
+  optional bool inprocessing_use_congruence_closure = 342 [default = true];
+
+  // Whether we use the SAT sweeping algorithm described in "Clausal Equivalence
+  // Sweeping", Armin Biere, Katalin Fazekas, Mathias Fleury, Nils Froleyks,
+  // 2025.
+  optional bool inprocessing_use_sat_sweeping = 354 [default = false];
+
+  // ==========================================================================
+  // Multithread
+  // ==========================================================================
+
+  // Specify the number of parallel workers (i.e. threads) to use during search.
+  // This should usually be lower than your number of available cpus +
+  // hyperthread in your machine.
+  //
+  // A value of 0 means the solver will try to use all cores on the machine.
+  // A number of 1 means no parallelism.
+  //
+  // Note that 'num_workers' is the preferred name, but if it is set to zero,
+  // we will still read the deprecated 'num_search_workers'.
+  //
+  // As of 2020-04-10, if you're using SAT via MPSolver (to solve integer
+  // programs) this field is overridden with a value of 8, if the field is not
+  // set *explicitly*. Thus, always set this field explicitly or via
+  // MPSolver::SetNumThreads().
+  optional int32 num_workers = 206 [default = 0];
+  optional int32 num_search_workers = 100 [default = 0];
+
+  // We distinguish subsolvers that consume a full thread, and the ones that are
+  // always interleaved. If left at zero, we will fix this with a default
+  // formula that depends on num_workers. But if you start modifying what runs,
+  // you might want to fix that to a given value depending on the num_workers
+  // you use.
+  optional int32 num_full_subsolvers = 294 [default = 0];
+
+  // In multi-thread, the solver can be mainly seen as a portfolio of solvers
+  // with different parameters. This field indicates the names of the parameters
+  // that are used in multithread. This only applies to "full" subsolvers.
+  //
+  // See cp_model_search.cc to see a list of the names and the default value (if
+  // left empty) that looks like:
+  // - default_lp           (linearization_level:1)
+  // - fixed                (only if fixed search specified or scheduling)
+  // - no_lp                (linearization_level:0)
+  // - max_lp               (linearization_level:2)
+  // - pseudo_costs         (only if objective, change search heuristic)
+  // - reduced_costs        (only if objective, change search heuristic)
+  // - quick_restart        (kind of probing)
+  // - quick_restart_no_lp  (kind of probing with linearization_level:0)
+  // - lb_tree_search       (to improve lower bound, MIP like tree search)
+  // - probing              (continuous probing and shaving)
+  //
+  // Also, note that some set of parameters will be ignored if they do not make
+  // sense. For instance if there is no objective, pseudo_cost or reduced_cost
+  // search will be ignored. Core based search will only work if the objective
+  // has many terms. If there is no fixed strategy fixed will be ignored. And so
+  // on.
+  //
+  // The order is important, as only the first num_full_subsolvers will be
+  // scheduled. You can see in the log which one are selected for a given run.
+  repeated string subsolvers = 207;
+
+  // A convenient way to add more workers types.
+  // These will be added at the beginning of the list.
+  repeated string extra_subsolvers = 219;
+
+  // Rather than fully specifying subsolvers, it is often convenient to just
+  // remove the ones that are not useful on a given problem or only keep
+  // specific ones for testing. Each string is interpreted as a "glob", so we
+  // support '*' and '?'.
+  //
+  // The way this work is that we will only accept a name that match a filter
+  // pattern (if non-empty) and do not match an ignore pattern. Note also that
+  // these fields work on LNS or LS names even if these are currently not
+  // specified via the subsolvers field.
+  repeated string ignore_subsolvers = 209;
+  repeated string filter_subsolvers = 293;
+
+  // It is possible to specify additional subsolver configuration. These can be
+  // referred by their params.name() in the fields above. Note that only the
+  // specified field will "overwrite" the ones of the base parameter. If a
+  // subsolver_params has the name of an existing subsolver configuration, the
+  // named parameters will be merged into the subsolver configuration.
+  repeated SatParameters subsolver_params = 210;
+
+  // Experimental. If this is true, then we interleave all our major search
+  // strategy and distribute the work amongst num_workers.
+  //
+  // The search is deterministic (independently of num_workers!), and we
+  // schedule and wait for interleave_batch_size task to be completed before
+  // synchronizing and scheduling the next batch of tasks.
+  optional bool interleave_search = 136 [default = false];
+  optional int32 interleave_batch_size = 134 [default = 0];
+
+  // Allows objective sharing between workers.
+  optional bool share_objective_bounds = 113 [default = true];
+
+  // Allows sharing of the bounds of modified variables at level 0.
+  optional bool share_level_zero_bounds = 114 [default = true];
+
+  // Allows sharing of the bounds on linear2 discovered at level 0. This is
+  // mainly interesting on scheduling type of problems when we branch on
+  // precedences.
+  //
+  // Warning: This currently non-deterministic.
+  optional bool share_linear2_bounds = 326 [default = false];
+
+  // Allows sharing of new learned binary clause between workers.
+  optional bool share_binary_clauses = 203 [default = true];
+
+  // Allows sharing of short glue clauses between workers.
+  // Implicitly disabled if share_binary_clauses is false.
+  optional bool share_glue_clauses = 285 [default = true];
+
+  // Minimize and detect subsumption of shared clauses immediately after they
+  // are imported.
+  optional bool minimize_shared_clauses = 300 [default = true];
+
+  // The amount of dtime between each export of shared glue clauses.
+  optional double share_glue_clauses_dtime = 322 [default = 1.0];
+
+  // ==========================================================================
+  // Proofs
+  // ==========================================================================
+
+  // If true, inferred clauses are checked with an LRAT checker as they are
+  // learned, in presolve (reduced to trivial simplifications if
+  // cp_model_presolve is false), and in each worker. As of December 2025, this
+  // only works with pure SAT problems, with
+  //  - cp_model_presolve = false,
+  //  - linearization_level <= 1,
+  //  - symmetry_level <= 1.
+  optional bool check_lrat_proof = 344 [default = false];
+
+  // If true, and if output_lrat_proof is true and the problem is UNSAT, check
+  // that the merged proof file is valid, i.e., that clause sharing between
+  // workers is correct. This checks each inferred clause, so you might want to
+  // disable check_lrat_proof to avoid redundant work. As of November 2025, this
+  // only works for pure SAT problems, with num_workers = 1.
+  optional bool check_merged_lrat_proof = 352 [default = false];
+
+  // If true, an LRAT proof that all the clauses inferred by the solver are
+  // valid is output to several files (one for presolve -- reduced to trivial
+  // simplifications if cp_model_presolve is false, one per worker, and one for
+  // the merged proof). As of December 2025, this only works for pure SAT
+  // problems, with
+  //  - cp_model_presolve = false,
+  //  - linearization_level <= 1,
+  //  - symmetry_level <= 1.
+  optional bool output_lrat_proof = 345 [default = false];
+
+  // If true, and if the problem is UNSAT, a DRAT proof of this UNSAT property
+  // is checked after the solver has finished. As of November 2025, this only
+  // works for pure SAT problems, with
+  //  - num_workers = 1,
+  //  - cp_model_presolve = false,
+  //  - linearization_level <= 1,
+  //  - symmetry_level <= 1.
+  optional bool check_drat_proof = 346 [default = false];
+
+  // If true, a DRAT proof that all the clauses inferred by the solver are valid
+  // is output to a file. As of December 2025, this only works for pure SAT
+  // problems, with
+  //  - num_workers = 1,
+  //  - cp_model_presolve = false,
+  //  - linearization_level <= 1,
+  //  - symmetry_level <= 1.
+  optional bool output_drat_proof = 347 [default = false];
+
+  // The maximum time allowed to check the DRAT proof (this can take more time
+  // than the solve itself). Only used if check_drat_proof is true.
+  optional double max_drat_time_in_seconds = 348 [default = inf];
+
+  // ==========================================================================
+  // Debugging parameters
+  // ==========================================================================
+
+  // We have two different postsolve code. The default one should be better and
+  // it allows for a more powerful presolve, but it can be useful to postsolve
+  // using the full solver instead.
+  optional bool debug_postsolve_with_full_solver = 162 [default = false];
+
+  // If positive, try to stop just after that many presolve rules have been
+  // applied. This is mainly useful for debugging presolve.
+  optional int32 debug_max_num_presolve_operations = 151 [default = 0];
+
+  // Crash if we do not manage to complete the hint into a full solution.
+  optional bool debug_crash_on_bad_hint = 195 [default = false];
+
+  // Crash if presolve breaks a feasible hint.
+  optional bool debug_crash_if_presolve_breaks_hint = 306 [default = false];
+
+  // Crash if the LRAT UNSAT proof is invalid.
+  optional bool debug_crash_if_lrat_check_fails = 339 [default = false];
+
+  // ==========================================================================
+  // Max-sat parameters
+  // ==========================================================================
+
+  // For an optimization problem, whether we follow some hints in order to find
+  // a better first solution. For a variable with hint, the solver will always
+  // try to follow the hint. It will revert to the variable_branching default
+  // otherwise.
+  optional bool use_optimization_hints = 35 [default = true];
+
+  // If positive, we spend some effort on each core:
+  // - At level 1, we use a simple heuristic to try to minimize an UNSAT core.
+  // - At level 2, we use propagation to minimize the core but also identify
+  //   literal in at most one relationship in this core.
+  optional int32 core_minimization_level = 50 [default = 2];
+
+  // Whether we try to find more independent cores for a given set of
+  // assumptions in the core based max-SAT algorithms.
+  optional bool find_multiple_cores = 84 [default = true];
+
+  // If true, when the max-sat algo find a core, we compute the minimal number
+  // of literals in the core that needs to be true to have a feasible solution.
+  // This is also called core exhaustion in more recent max-SAT papers.
+  optional bool cover_optimization = 89 [default = true];
+
+  // In what order do we add the assumptions in a core-based max-sat algorithm
+  enum MaxSatAssumptionOrder {
+    DEFAULT_ASSUMPTION_ORDER = 0;
+    ORDER_ASSUMPTION_BY_DEPTH = 1;
+    ORDER_ASSUMPTION_BY_WEIGHT = 2;
+  }
+  optional MaxSatAssumptionOrder max_sat_assumption_order = 51
+      [default = DEFAULT_ASSUMPTION_ORDER];
+
+  // If true, adds the assumption in the reverse order of the one defined by
+  // max_sat_assumption_order.
+  optional bool max_sat_reverse_assumption_order = 52 [default = false];
+
+  // What stratification algorithm we use in the presence of weight.
+  enum MaxSatStratificationAlgorithm {
+    // No stratification of the problem.
+    STRATIFICATION_NONE = 0;
+
+    // Start with literals with the highest weight, and when SAT, add the
+    // literals with the next highest weight and so on.
+    STRATIFICATION_DESCENT = 1;
+
+    // Start with all literals. Each time a core is found with a given minimum
+    // weight, do not consider literals with a lower weight for the next core
+    // computation. If the subproblem is SAT, do like in STRATIFICATION_DESCENT
+    // and just add the literals with the next highest weight.
+    STRATIFICATION_ASCENT = 2;
+  }
+  optional MaxSatStratificationAlgorithm max_sat_stratification = 53
+      [default = STRATIFICATION_DESCENT];
+
+  // ==========================================================================
+  // Constraint programming parameters
+  // ==========================================================================
+
+  // Some search decisions might cause a really large number of propagations to
+  // happen when integer variables with large domains are only reduced by 1 at
+  // each step. If we propagate more than the number of variable times this
+  // parameters we try to take counter-measure. Setting this to 0.0 disable this
+  // feature.
+  //
+  // TODO(user): Setting this to something like 10 helps in most cases, but the
+  // code is currently buggy and can cause the solve to enter a bad state where
+  // no progress is made.
+  optional double propagation_loop_detection_factor = 221 [default = 10.0];
+
+  // When this is true, then a disjunctive constraint will try to use the
+  // precedence relations between time intervals to propagate their bounds
+  // further. For instance if task A and B are both before C and task A and B
+  // are in disjunction, then we can deduce that task C must start after
+  // duration(A) + duration(B) instead of simply max(duration(A), duration(B)),
+  // provided that the start time for all task was currently zero.
+  //
+  // This always result in better propagation, but it is usually slow, so
+  // depending on the problem, turning this off may lead to a faster solution.
+  optional bool use_precedences_in_disjunctive_constraint = 74 [default = true];
+
+  // At root level, we might compute the transitive closure of "precedences"
+  // relations so that we can exploit that in scheduling problems. Setting this
+  // to zero disable the feature.
+  optional int32 transitive_precedences_work_limit = 327 [default = 1000000];
+
+  // Create one literal for each disjunction of two pairs of tasks. This slows
+  // down the solve time, but improves the lower bound of the objective in the
+  // makespan case. This will be triggered if the number of intervals is less or
+  // equal than the parameter and if use_strong_propagation_in_disjunctive is
+  // true.
+  optional int32 max_size_to_create_precedence_literals_in_disjunctive = 229
+      [default = 60];
+
+  // Enable stronger and more expensive propagation on no_overlap constraint.
+  optional bool use_strong_propagation_in_disjunctive = 230 [default = false];
+
+  // Whether we try to branch on decision "interval A before interval B" rather
+  // than on intervals bounds. This usually works better, but slow down a bit
+  // the time to find the first solution.
+  //
+  // These parameters are still EXPERIMENTAL, the result should be correct, but
+  // it some corner cases, they can cause some failing CHECK in the solver.
+  optional bool use_dynamic_precedence_in_disjunctive = 263 [default = false];
+  optional bool use_dynamic_precedence_in_cumulative = 268 [default = false];
+
+  // When this is true, the cumulative constraint is reinforced with overload
+  // checking, i.e., an additional level of reasoning based on energy. This
+  // additional level supplements the default level of reasoning as well as
+  // timetable edge finding.
+  //
+  // This always result in better propagation, but it is usually slow, so
+  // depending on the problem, turning this off may lead to a faster solution.
+  optional bool use_overload_checker_in_cumulative = 78 [default = false];
+
+  // Enable a heuristic to solve cumulative constraints using a modified energy
+  // constraint. We modify the usual energy definition by applying a
+  // super-additive function (also called "conservative scale" or "dual-feasible
+  // function") to the demand and the durations of the tasks.
+  //
+  // This heuristic is fast but for most problems it does not help much to find
+  // a solution.
+  optional bool use_conservative_scale_overload_checker = 286 [default = false];
+
+  // When this is true, the cumulative constraint is reinforced with timetable
+  // edge finding, i.e., an additional level of reasoning based on the
+  // conjunction of energy and mandatory parts. This additional level
+  // supplements the default level of reasoning as well as overload_checker.
+  //
+  // This always result in better propagation, but it is usually slow, so
+  // depending on the problem, turning this off may lead to a faster solution.
+  optional bool use_timetable_edge_finding_in_cumulative = 79 [default = false];
+
+  // Max number of intervals for the timetable_edge_finding algorithm to
+  // propagate. A value of 0 disables the constraint.
+  optional int32 max_num_intervals_for_timetable_edge_finding = 260
+      [default = 100];
+
+  // If true, detect and create constraint for integer variable that are "after"
+  // a set of intervals in the same cumulative constraint.
+  //
+  // Experimental: by default we just use "direct" precedences. If
+  // exploit_all_precedences is true, we explore the full precedence graph. This
+  // assumes we have a DAG otherwise it fails.
+  optional bool use_hard_precedences_in_cumulative = 215 [default = false];
+  optional bool exploit_all_precedences = 220 [default = false];
+
+  // When this is true, the cumulative constraint is reinforced with propagators
+  // from the disjunctive constraint to improve the inference on a set of tasks
+  // that are disjunctive at the root of the problem. This additional level
+  // supplements the default level of reasoning.
+  //
+  // Propagators of the cumulative constraint will not be used at all if all the
+  // tasks are disjunctive at root node.
+  //
+  // This always result in better propagation, but it is usually slow, so
+  // depending on the problem, turning this off may lead to a faster solution.
+  optional bool use_disjunctive_constraint_in_cumulative = 80 [default = true];
+
+  // If less than this number of boxes are present in a no-overlap 2d, we
+  // create 4 Booleans per pair of boxes:
+  // - Box 2 is after Box 1 on x.
+  // - Box 1 is after Box 2 on x.
+  // - Box 2 is after Box 1 on y.
+  // - Box 1 is after Box 2 on y.
+  //
+  // Note that at least one of them must be true, and at most one on x and one
+  // on y can be true.
+  //
+  // This can significantly help in closing small problem. The SAT reasoning
+  // can be a lot more powerful when we take decision on such positional
+  // relations.
+  optional int32 no_overlap_2d_boolean_relations_limit = 321 [default = 10];
+
+  // When this is true, the no_overlap_2d constraint is reinforced with
+  // propagators from the cumulative constraints. It consists of ignoring the
+  // position of rectangles in one position and projecting the no_overlap_2d on
+  // the other dimension to create a cumulative constraint. This is done on both
+  // axis. This additional level supplements the default level of reasoning.
+  optional bool use_timetabling_in_no_overlap_2d = 200 [default = false];
+
+  // When this is true, the no_overlap_2d constraint is reinforced with
+  // energetic reasoning. This additional level supplements the default level of
+  // reasoning.
+  optional bool use_energetic_reasoning_in_no_overlap_2d = 213
+      [default = false];
+
+  // When this is true, the no_overlap_2d constraint is reinforced with
+  // an energetic reasoning that uses an area-based energy. This can be combined
+  // with the two other overlap heuristics above.
+  optional bool use_area_energetic_reasoning_in_no_overlap_2d = 271
+      [default = false];
+
+  optional bool use_try_edge_reasoning_in_no_overlap_2d = 299 [default = false];
+
+  // If the number of pairs to look is below this threshold, do an extra step of
+  // propagation in the no_overlap_2d constraint by looking at all pairs of
+  // intervals.
+  optional int32 max_pairs_pairwise_reasoning_in_no_overlap_2d = 276
+      [default = 1250];
+
+  // Detects when the space where items of a no_overlap_2d constraint can placed
+  // is disjoint (ie., fixed boxes split the domain). When it is the case, we
+  // can introduce a boolean for each pair <item, component> encoding whether
+  // the item is in the component or not. Then we replace the original
+  // no_overlap_2d constraint by one no_overlap_2d constraint for each
+  // component, with the new booleans as the enforcement_literal of the
+  // intervals. This is equivalent to expanding the original no_overlap_2d
+  // constraint into a bin packing problem with each connected component being a
+  // bin. This heuristic is only done when the number of regions to split
+  // is less than this parameter and <= 1 disables it.
+  optional int32 maximum_regions_to_split_in_disconnected_no_overlap_2d = 315
+      [default = 0];
+
+  // When set, this activates a propagator for the no_overlap_2d constraint that
+  // uses any eventual linear constraints of the model in the form
+  // `{start interval 1} - {end interval 2} + c*w <= ub` to detect that two
+  // intervals must overlap in one dimension for some values of `w`. This is
+  // particularly useful for problems where the distance between two boxes is
+  // part of the model.
+  optional bool use_linear3_for_no_overlap_2d_precedences = 323
+      [default = true];
+
+  // When set, it activates a few scheduling parameters to improve the lower
+  // bound of scheduling problems. This is only effective with multiple workers
+  // as it modifies the reduced_cost, lb_tree_search, and probing workers.
+  optional bool use_dual_scheduling_heuristics = 214 [default = true];
+
+  // Turn on extra propagation for the circuit constraint.
+  // This can be quite slow.
+  optional bool use_all_different_for_circuit = 311 [default = false];
+
+  // If the size of a subset of nodes of a RoutesConstraint is less than this
+  // value, use linear constraints of size 1 and 2 (such as capacity and time
+  // window constraints) enforced by the arc literals to compute cuts for this
+  // subset (unless the subset size is less than
+  // routing_cut_subset_size_for_tight_binary_relation_bound, in which case the
+  // corresponding algorithm is used instead). The algorithm for these cuts has
+  // a O(n^3) complexity, where n is the subset size. Hence the value of this
+  // parameter should not be too large (e.g. 10 or 20).
+  optional int32 routing_cut_subset_size_for_binary_relation_bound = 312
+      [default = 0];
+
+  // Similar to above, but with a different algorithm producing better cuts, at
+  // the price of a higher O(2^n) complexity, where n is the subset size. Hence
+  // the value of this parameter should be small (e.g. less than 10).
+  optional int32 routing_cut_subset_size_for_tight_binary_relation_bound = 313
+      [default = 0];
+
+  // Similar to above, but with an even stronger algorithm in O(n!). We try to
+  // be defensive and abort early or not run that often. Still the value of
+  // that parameter shouldn't really be much more than 10.
+  optional int32 routing_cut_subset_size_for_exact_binary_relation_bound = 316
+      [default = 8];
+
+  // Similar to routing_cut_subset_size_for_exact_binary_relation_bound but
+  // use a bound based on shortest path distances (which respect triangular
+  // inequality). This allows to derive bounds that are valid for any superset
+  // of a given subset. This is slow, so it shouldn't really be larger than 10.
+  optional int32 routing_cut_subset_size_for_shortest_paths_bound = 318
+      [default = 8];
+
+  // The amount of "effort" to spend in dynamic programming for computing
+  // routing cuts. This is in term of basic operations needed by the algorithm
+  // in the worst case, so a value like 1e8 should take less than a second to
+  // compute.
+  optional double routing_cut_dp_effort = 314 [default = 1e7];
+
+  // If the length of an infeasible path is less than this value, a cut will be
+  // added to exclude it.
+  optional int32 routing_cut_max_infeasible_path_length = 317 [default = 6];
+
+  // The search branching will be used to decide how to branch on unfixed nodes.
+  enum SearchBranching {
+    // Try to fix all literals using the underlying SAT solver's heuristics,
+    // then generate and fix literals until integer variables are fixed. New
+    // literals on integer variables are generated using the fixed search
+    // specified by the user or our default one.
+    AUTOMATIC_SEARCH = 0;
+
+    // If used then all decisions taken by the solver are made using a fixed
+    // order as specified in the API or in the CpModelProto search_strategy
+    // field.
+    FIXED_SEARCH = 1;
+
+    // Simple portfolio search used by LNS workers.
+    PORTFOLIO_SEARCH = 2;
+
+    // If used, the solver will use heuristics from the LP relaxation. This
+    // exploit the reduced costs of the variables in the relaxation.
+    LP_SEARCH = 3;
+
+    // If used, the solver uses the pseudo costs for branching. Pseudo costs
+    // are computed using the historical change in objective bounds when some
+    // decision are taken. Note that this works whether we use an LP or not.
+    PSEUDO_COST_SEARCH = 4;
+
+    // Mainly exposed here for testing. This quickly tries a lot of randomized
+    // heuristics with a low conflict limit. It usually provides a good first
+    // solution.
+    PORTFOLIO_WITH_QUICK_RESTART_SEARCH = 5;
+
+    // Mainly used internally. This is like FIXED_SEARCH, except we follow the
+    // solution_hint field of the CpModelProto rather than using the information
+    // provided in the search_strategy.
+    HINT_SEARCH = 6;
+
+    // Similar to FIXED_SEARCH, but differ in how the variable not listed into
+    // the fixed search heuristics are branched on. This will always start the
+    // search tree according to the specified fixed search strategy, but will
+    // complete it using the default automatic search.
+    PARTIAL_FIXED_SEARCH = 7;
+
+    // Randomized search. Used to increase entropy in the search.
+    RANDOMIZED_SEARCH = 8;
+  }
+  optional SearchBranching search_branching = 82 [default = AUTOMATIC_SEARCH];
+
+  // Conflict limit used in the phase that exploit the solution hint.
+  optional int32 hint_conflict_limit = 153 [default = 10];
+
+  // If true, the solver tries to repair the solution given in the hint. This
+  // search terminates after the 'hint_conflict_limit' is reached and the solver
+  // switches to regular search. If false, then  we do a FIXED_SEARCH using the
+  // hint until the hint_conflict_limit is reached.
+  optional bool repair_hint = 167 [default = false];
+
+  // If true, variables appearing in the solution hints will be fixed to their
+  // hinted value.
+  optional bool fix_variables_to_their_hinted_value = 192 [default = false];
+
+  // If true, search will continuously probe Boolean variables, and integer
+  // variable bounds. This parameter is set to true in parallel on the probing
+  // worker.
+  optional bool use_probing_search = 176 [default = false];
+
+  // Use extended probing (probe bool_or, at_most_one, exactly_one).
+  optional bool use_extended_probing = 269 [default = true];
+
+  // How many combinations of pairs or triplets of variables we want to scan.
+  optional int32 probing_num_combinations_limit = 272 [default = 20000];
+
+  // Add a shaving phase (where the solver tries to prove that the lower or
+  // upper bound of a variable are infeasible) to the probing search. (<= 0
+  // disables it).
+  optional double shaving_deterministic_time_in_probing_search = 204
+      [default = 0.001];
+
+  // Specifies the amount of deterministic time spent of each try at shaving a
+  // bound in the shaving search.
+  optional double shaving_search_deterministic_time = 205 [default = 0.1];
+
+  // Specifies the threshold between two modes in the shaving procedure.
+  // If the range of the variable/objective is less than this threshold, then
+  // the shaving procedure will try to remove values one by one. Otherwise, it
+  // will try to remove one range at a time.
+  optional int64 shaving_search_threshold = 290 [default = 64];
+
+  // If true, search will search in ascending max objective value (when
+  // minimizing) starting from the lower bound of the objective.
+  optional bool use_objective_lb_search = 228 [default = false];
+
+  // This search differs from the previous search as it will not use assumptions
+  // to bound the objective, and it will recreate a full model with the
+  // hardcoded objective value.
+  optional bool use_objective_shaving_search = 253 [default = false];
+
+  // This search takes all Boolean or integer variables, and maximize or
+  // minimize them in order to reduce their domain. -1 is automatic, otherwise
+  // value 0 disables it, and 1, 2, or 3 changes something.
+  optional int32 variables_shaving_level = 289 [default = -1];
+
+  // The solver ignores the pseudo costs of variables with number of recordings
+  // less than this threshold.
+  optional int64 pseudo_cost_reliability_threshold = 123 [default = 100];
+
+  // The default optimization method is a simple "linear scan", each time trying
+  // to find a better solution than the previous one. If this is true, then we
+  // use a core-based approach (like in max-SAT) when we try to increase the
+  // lower bound instead.
+  optional bool optimize_with_core = 83 [default = false];
+
+  // Do a more conventional tree search (by opposition to SAT based one) where
+  // we keep all the explored node in a tree. This is meant to be used in a
+  // portfolio and focus on improving the objective lower bound. Keeping the
+  // whole tree allow us to report a better objective lower bound coming from
+  // the worst open node in the tree.
+  optional bool optimize_with_lb_tree_search = 188 [default = false];
+
+  // Experimental. Save the current LP basis at each node of the search tree so
+  // that when we jump around, we can load it and reduce the number of LP
+  // iterations needed.
+  //
+  // It currently works okay if we do not change the lp with cuts or
+  // simplification... More work is needed to make it robust in all cases.
+  optional bool save_lp_basis_in_lb_tree_search = 284 [default = false];
+
+  // If non-negative, perform a binary search on the objective variable in order
+  // to find an [min, max] interval outside of which the solver proved unsat/sat
+  // under this amount of conflict. This can quickly reduce the objective domain
+  // on some problems.
+  optional int32 binary_search_num_conflicts = 99 [default = -1];
+
+  // This has no effect if optimize_with_core is false. If true, use a different
+  // core-based algorithm similar to the max-HS algo for max-SAT. This is a
+  // hybrid MIP/CP approach and it uses a MIP solver in addition to the CP/SAT
+  // one. This is also related to the PhD work of tobyodavies@
+  // "Automatic Logic-Based Benders Decomposition with MiniZinc"
+  // http://aaai.org/ocs/index.php/AAAI/AAAI17/paper/view/14489
+  optional bool optimize_with_max_hs = 85 [default = false];
+
+  // Parameters for an heuristic similar to the one described in the paper:
+  // "Feasibility Jump: an LP-free Lagrangian MIP heuristic", Bjørnar
+  // Luteberget, Giorgio Sartor, 2023, Mathematical Programming Computation.
+  optional bool use_feasibility_jump = 265 [default = true];
+
+  // Disable every other type of subsolver, setting this turns CP-SAT into a
+  // pure local-search solver.
+  optional bool use_ls_only = 240 [default = false];
+
+  // On each restart, we randomly choose if we use decay (with this parameter)
+  // or no decay.
+  optional double feasibility_jump_decay = 242 [default = 0.95];
+
+  // How much do we linearize the problem in the local search code.
+  optional int32 feasibility_jump_linearization_level = 257 [default = 2];
+
+  // This is a factor that directly influence the work before each restart.
+  // Increasing it leads to longer restart.
+  optional int32 feasibility_jump_restart_factor = 258 [default = 1];
+
+  // How much dtime for each LS batch.
+  optional double feasibility_jump_batch_dtime = 292 [default = 0.1];
+
+  // Probability for a variable to have a non default value upon restarts or
+  // perturbations.
+  optional double feasibility_jump_var_randomization_probability = 247
+      [default = 0.05];
+
+  // Max distance between the default value and the pertubated value relative to
+  // the range of the domain of the variable.
+  optional double feasibility_jump_var_perburbation_range_ratio = 248
+      [default = 0.2];
+
+  // When stagnating, feasibility jump will either restart from a default
+  // solution (with some possible randomization), or randomly pertubate the
+  // current solution. This parameter selects the first option.
+  optional bool feasibility_jump_enable_restarts = 250 [default = true];
+
+  // Maximum size of no_overlap or no_overlap_2d constraint for a quadratic
+  // expansion. This might look a lot, but by expanding such constraint, we get
+  // a linear time evaluation per single variable moves instead of a slow O(n
+  // log n) one.
+  optional int32 feasibility_jump_max_expanded_constraint_size = 264
+      [default = 500];
+
+  // This will create incomplete subsolvers (that are not LNS subsolvers)
+  // that use the feasibility jump code to find improving solution, treating
+  // the objective improvement as a hard constraint.
+  optional int32 num_violation_ls = 244 [default = 0];
+
+  // How long violation_ls should wait before perturbating a solution.
+  optional int32 violation_ls_perturbation_period = 249 [default = 100];
+
+  // Probability of using compound move search each restart.
+  // TODO(user): Add reference to paper when published.
+  optional double violation_ls_compound_move_probability = 259 [default = 0.5];
+
+  // Enables shared tree search.
+  // If positive, start this many complete worker threads to explore a shared
+  // search tree. These workers communicate objective bounds and simple decision
+  // nogoods relating to the shared prefix of the tree, and will avoid exploring
+  // the same subtrees as one another.
+  // Specifying a negative number uses a heuristic to select an appropriate
+  // number of shared tree workeres based on the total number of workers.
+  optional int32 shared_tree_num_workers = 235 [default = -1];
+
+  // Set on shared subtree workers. Users should not set this directly.
+  optional bool use_shared_tree_search = 236 [default = false];
+
+  // Minimum restarts before a worker will replace a subtree
+  // that looks "bad" based on the average LBD of learned clauses.
+  optional int32 shared_tree_worker_min_restarts_per_subtree = 282
+      [default = 1];
+
+  // If true, workers share more of the information from their local trail.
+  // Specifically, literals implied by the shared tree decisions.
+  optional bool shared_tree_worker_enable_trail_sharing = 295 [default = true];
+
+  // If true, shared tree workers share their target phase when returning an
+  // assigned subtree for the next worker to use.
+  optional bool shared_tree_worker_enable_phase_sharing = 304 [default = true];
+
+  // How many open leaf nodes should the shared tree maintain per worker.
+  optional double shared_tree_open_leaves_per_worker = 281 [default = 2.0];
+
+  // In order to limit total shared memory and communication overhead, limit the
+  // total number of nodes that may be generated in the shared tree. If the
+  // shared tree runs out of unassigned leaves, workers act as portfolio
+  // workers. Note: this limit includes interior nodes, not just leaves.
+  optional int32 shared_tree_max_nodes_per_worker = 238 [default = 10000];
+
+  enum SharedTreeSplitStrategy {
+    // Uses the default strategy, currently equivalent to
+    // SPLIT_STRATEGY_DISCREPANCY.
+    SPLIT_STRATEGY_AUTO = 0;
+    // Only accept splits if the node to be split's depth+discrepancy is minimal
+    // for the desired number of leaves.
+    // The preferred child for discrepancy calculation is the one with the
+    // lowest objective lower bound or the original branch direction if the
+    // bounds are equal. This rule allows twice as many workers to work in the
+    // preferred subtree as non-preferred.
+    SPLIT_STRATEGY_DISCREPANCY = 1;
+    // Only split nodes with an objective lb equal to the global lb. If there is
+    // no objective, this is equivalent to SPLIT_STRATEGY_FIRST_PROPOSAL.
+    SPLIT_STRATEGY_OBJECTIVE_LB = 2;
+    // Attempt to keep the shared tree balanced.
+    SPLIT_STRATEGY_BALANCED_TREE = 3;
+    // Workers race to split their subtree, the winner's proposal is accepted.
+    SPLIT_STRATEGY_FIRST_PROPOSAL = 4;
+  }
+  optional SharedTreeSplitStrategy shared_tree_split_strategy = 239
+      [default = SPLIT_STRATEGY_AUTO];
+
+  // How much deeper compared to the ideal max depth of the tree is considered
+  // "balanced" enough to still accept a split. Without such a tolerance,
+  // sometimes the tree can only be split by a single worker, and they may not
+  // generate a split for some time. In contrast, with a tolerance of 1, at
+  // least half of all workers should be able to split the tree as soon as a
+  // split becomes required. This only has an effect on
+  // SPLIT_STRATEGY_BALANCED_TREE and SPLIT_STRATEGY_DISCREPANCY.
+  optional int32 shared_tree_balance_tolerance = 305 [default = 1];
+
+  // How much dtime a worker will wait between proposing splits.
+  // This limits the contention in splitting the shared tree, and also reduces
+  // the number of too-easy subtrees that are generates.
+  optional double shared_tree_split_min_dtime = 328 [default = 0.1];
+
+  // Whether we enumerate all solutions of a problem without objective.
+  //
+  // WARNING:
+  // - This can be used with num_workers > 1 but then each solutions can be
+  //   found more than once, so it is up to the client to deduplicate them.
+  // - If keep_all_feasible_solutions_in_presolve is unset, we will set it to
+  //   true as otherwise, many feasible solution can just be removed by the
+  //   presolve. It is still possible to manually set this to false if one only
+  //   wants to enumerate all solutions of the presolved model.
+  optional bool enumerate_all_solutions = 87 [default = false];
+
+  // If true, we disable the presolve reductions that remove feasible solutions
+  // from the search space. Such solution are usually dominated by a "better"
+  // solution that is kept, but depending on the situation, we might want to
+  // keep all solutions.
+  //
+  // A trivial example is when a variable is unused. If this is true, then the
+  // presolve will not fix it to an arbitrary value and it will stay in the
+  // search space.
+  optional bool keep_all_feasible_solutions_in_presolve = 173 [default = false];
+
+  // If true, add information about the derived variable domains to the
+  // CpSolverResponse. It is an option because it makes the response slighly
+  // bigger and there is a bit more work involved during the postsolve to
+  // construct it, but it should still have a low overhead. See the
+  // tightened_variables field in CpSolverResponse for more details.
+  optional bool fill_tightened_domains_in_response = 132 [default = false];
+
+  // If true, the final response addition_solutions field will be filled with
+  // all solutions from our solutions pool.
+  //
+  // Note that if both this field and enumerate_all_solutions is true, we will
+  // copy to the pool all of the solution found. So if solution_pool_size is big
+  // enough, you can get all solutions this way instead of using the solution
+  // callback.
+  //
+  // Note that this only affect the "final" solution, not the one passed to the
+  // solution callbacks.
+  optional bool fill_additional_solutions_in_response = 194 [default = false];
+
+  // If true, the solver will add a default integer branching strategy to the
+  // already defined search strategy. If not, some variable might still not be
+  // fixed at the end of the search. For now we assume these variable can just
+  // be set to their lower bound.
+  optional bool instantiate_all_variables = 106 [default = true];
+
+  // If true, then the precedences propagator try to detect for each variable if
+  // it has a set of "optional incoming arc" for which at least one of them is
+  // present. This is usually useful to have but can be slow on model with a lot
+  // of precedence.
+  optional bool auto_detect_greater_than_at_least_one_of = 95 [default = true];
+
+  // For an optimization problem, stop the solver as soon as we have a solution.
+  optional bool stop_after_first_solution = 98 [default = false];
+
+  // Mainly used when improving the presolver. When true, stops the solver after
+  // the presolve is complete (or after loading and root level propagation).
+  optional bool stop_after_presolve = 149 [default = false];
+  optional bool stop_after_root_propagation = 252 [default = false];
+
+  // LNS parameters.
+
+  // Initial parameters for neighborhood generation.
+  optional double lns_initial_difficulty = 307 [default = 0.5];
+  optional double lns_initial_deterministic_limit = 308 [default = 0.1];
+
+  // Testing parameters used to disable all lns workers.
+  optional bool use_lns = 283 [default = true];
+
+  // Experimental parameters to disable everything but lns.
+  optional bool use_lns_only = 101 [default = false];
+
+  // Size of the top-n different solutions kept by the solver.
+  // This parameter must be > 0. Currently, having this larger than one mainly
+  // impact the "base" solution chosen for a LNS/LS fragment.
+  optional int32 solution_pool_size = 193 [default = 3];
+
+  // If solution_pool_size is <= this, we will use DP to keep a "diverse" set
+  // of solutions (the one further apart via hamming distance) in the pool.
+  // Setting this to large value might be slow, especially if your solution are
+  // large.
+  optional int32 solution_pool_diversity_limit = 329 [default = 10];
+
+  // In order to not get stuck in local optima, when this is non-zero, we try to
+  // also work on "older" solutions with a worse objective value so we get a
+  // chance to follow a different LS/LNS trajectory.
+  optional int32 alternative_pool_size = 325 [default = 1];
+
+  // Turns on relaxation induced neighborhood generator.
+  optional bool use_rins_lns = 129 [default = true];
+
+  // Adds a feasibility pump subsolver along with lns subsolvers.
+  optional bool use_feasibility_pump = 164 [default = true];
+
+  // Turns on neighborhood generator based on local branching LP. Based on Huang
+  // et al., "Local Branching Relaxation Heuristics for Integer Linear
+  // Programs", 2023.
+  optional bool use_lb_relax_lns = 255 [default = true];
+
+  // Only use lb-relax if we have at least that many workers.
+  optional int32 lb_relax_num_workers_threshold = 296 [default = 16];
+
+  // Rounding method to use for feasibility pump.
+  enum FPRoundingMethod {
+    // Rounds to the nearest integer value.
+    NEAREST_INTEGER = 0;
+
+    // Counts the number of linear constraints restricting the variable in the
+    // increasing values (up locks) and decreasing values (down locks). Rounds
+    // the variable in the direction of lesser locks.
+    LOCK_BASED = 1;
+
+    // Similar to lock based rounding except this only considers locks of active
+    // constraints from the last lp solve.
+    ACTIVE_LOCK_BASED = 3;
+
+    // This is expensive rounding algorithm. We round variables one by one and
+    // propagate the bounds in between. If none of the rounded values fall in
+    // the continuous domain specified by lower and upper bound, we use the
+    // current lower/upper bound (whichever one is closest) instead of rounding
+    // the fractional lp solution value. If both the rounded values are in the
+    // domain, we round to nearest integer.
+    PROPAGATION_ASSISTED = 2;
+  }
+  optional FPRoundingMethod fp_rounding = 165 [default = PROPAGATION_ASSISTED];
+
+  // If true, registers more lns subsolvers with different parameters.
+  optional bool diversify_lns_params = 137 [default = false];
+
+  // Randomize fixed search.
+  optional bool randomize_search = 103 [default = false];
+
+  // Search randomization will collect the top
+  // 'search_random_variable_pool_size' valued variables, and pick one randomly.
+  // The value of the variable is specific to each strategy.
+  optional int64 search_random_variable_pool_size = 104 [default = 0];
+
+  // Experimental code: specify if the objective pushes all tasks toward the
+  // start of the schedule.
+  optional bool push_all_tasks_toward_start = 262 [default = false];
+
+  // If true, we automatically detect variables whose constraint are always
+  // enforced by the same literal and we mark them as optional. This allows
+  // to propagate them as if they were present in some situation.
+  //
+  // TODO(user): This is experimental and seems to lead to wrong optimal in
+  // some situation. It should however gives correct solutions. Fix.
+  optional bool use_optional_variables = 108 [default = false];
+
+  // The solver usually exploit the LP relaxation of a model. If this option is
+  // true, then whatever is infered by the LP will be used like an heuristic to
+  // compute EXACT propagation on the IP. So with this option, there is no
+  // numerical imprecision issues.
+  optional bool use_exact_lp_reason = 109 [default = true];
+
+  // This can be beneficial if there is a lot of no-overlap constraints but a
+  // relatively low number of different intervals in the problem. Like 1000
+  // intervals, but 1M intervals in the no-overlap constraints covering them.
+  optional bool use_combined_no_overlap = 133 [default = false];
+
+  // All at_most_one constraints with a size <= param will be replaced by a
+  // quadratic number of binary implications.
+  optional int32 at_most_one_max_expansion_size = 270 [default = 3];
+
+  // Indicates if the CP-SAT layer should catch Control-C (SIGINT) signals
+  // when calling solve. If set, catching the SIGINT signal will terminate the
+  // search gracefully, as if a time limit was reached.
+  optional bool catch_sigint_signal = 135 [default = true];
+
+  // Stores and exploits "implied-bounds" in the solver. That is, relations of
+  // the form literal => (var >= bound). This is currently used to derive
+  // stronger cuts.
+  optional bool use_implied_bounds = 144 [default = true];
+
+  // Whether we try to do a few degenerate iteration at the end of an LP solve
+  // to minimize the fractionality of the integer variable in the basis. This
+  // helps on some problems, but not so much on others. It also cost of bit of
+  // time to do such polish step.
+  optional bool polish_lp_solution = 175 [default = false];
+
+  // The internal LP tolerances used by CP-SAT. These applies to the internal
+  // and scaled problem. If the domains of your variables are large it might be
+  // good to use lower tolerances. If your problem is binary with low
+  // coefficients, it might be good to use higher ones to speed-up the lp
+  // solves.
+  optional double lp_primal_tolerance = 266 [default = 1e-7];
+  optional double lp_dual_tolerance = 267 [default = 1e-7];
+
+  // Temporary flag util the feature is more mature. This convert intervals to
+  // the newer proto format that support affine start/var/end instead of just
+  // variables.
+  optional bool convert_intervals = 177 [default = true];
+
+  // Whether we try to automatically detect the symmetries in a model and
+  // exploit them. Currently, at level 1 we detect them in presolve and try
+  // to fix Booleans. At level 2, we also do some form of dynamic symmetry
+  // breaking during search. At level 3, we also detect symmetries for very
+  // large models, which can be slow. At level 4, we try to break as much
+  // symmetry as possible in presolve.
+  optional int32 symmetry_level = 183 [default = 2];
+
+  // When we have symmetry, it is possible to "fold" all variables from the same
+  // orbit into a single variable, while having the same power of LP relaxation.
+  // This can help significantly on symmetric problem. However there is
+  // currently a bit of overhead as the rest of the solver need to do some
+  // translation between the folded LP and the rest of the problem.
+  optional bool use_symmetry_in_lp = 301 [default = false];
+
+  // Experimental. This will compute the symmetry of the problem once and for
+  // all. All presolve operations we do should keep the symmetry group intact
+  // or modify it properly. For now we have really little support for this. We
+  // will disable a bunch of presolve operations that could be supported.
+  optional bool keep_symmetry_in_presolve = 303 [default = false];
+
+  // Deterministic time limit for symmetry detection.
+  optional double symmetry_detection_deterministic_time_limit = 302
+      [default = 1.0];
+
+  // The new linear propagation code treat all constraints at once and use
+  // an adaptation of Bellman-Ford-Tarjan to propagate constraint in a smarter
+  // order and potentially detect propagation cycle earlier.
+  optional bool new_linear_propagation = 224 [default = true];
+
+  // Linear constraints that are not pseudo-Boolean and that are longer than
+  // this size will be split into sqrt(size) intermediate sums in order to have
+  // faster propation in the CP engine.
+  optional int32 linear_split_size = 256 [default = 100];
+
+  // ==========================================================================
+  // Linear programming relaxation
+  // ==========================================================================
+
+  // A non-negative level indicating the type of constraints we consider in the
+  // LP relaxation. At level zero, no LP relaxation is used. At level 1, only
+  // the linear constraint and full encoding are added. At level 2, we also add
+  // all the Boolean constraints.
+  optional int32 linearization_level = 90 [default = 1];
+
+  // A non-negative level indicating how much we should try to fully encode
+  // Integer variables as Boolean.
+  optional int32 boolean_encoding_level = 107 [default = 1];
+
+  // When loading a*x + b*y ==/!= c when x and y are both fully encoded.
+  // The solver may decide to replace the linear equation by a set of clauses.
+  // This is triggered if the sizes of the domains of x and y are below the
+  // threshold.
+  optional int32 max_domain_size_when_encoding_eq_neq_constraints = 191
+      [default = 16];
+
+  // The limit on the number of cuts in our cut pool. When this is reached we do
+  // not generate cuts anymore.
+  //
+  // TODO(user): We should probably remove this parameters, and just always
+  // generate cuts but only keep the best n or something.
+  optional int32 max_num_cuts = 91 [default = 10000];
+
+  // Control the global cut effort. Zero will turn off all cut. For now we just
+  // have one level. Note also that most cuts are only used at linearization
+  // level >= 2.
+  optional int32 cut_level = 196 [default = 1];
+
+  // For the cut that can be generated at any level, this control if we only
+  // try to generate them at the root node.
+  optional bool only_add_cuts_at_level_zero = 92 [default = false];
+
+  // When the LP objective is fractional, do we add the cut that forces the
+  // linear objective expression to be greater or equal to this fractional value
+  // rounded up? We can always do that since our objective is integer, and
+  // combined with MIR heuristic to reduce the coefficient of such cut, it can
+  // help.
+  optional bool add_objective_cut = 197 [default = false];
+
+  // Whether we generate and add Chvatal-Gomory cuts to the LP at root node.
+  // Note that for now, this is not heavily tuned.
+  optional bool add_cg_cuts = 117 [default = true];
+
+  // Whether we generate MIR cuts at root node.
+  // Note that for now, this is not heavily tuned.
+  optional bool add_mir_cuts = 120 [default = true];
+
+  // Whether we generate Zero-Half cuts at root node.
+  // Note that for now, this is not heavily tuned.
+  optional bool add_zero_half_cuts = 169 [default = true];
+
+  // Whether we generate clique cuts from the binary implication graph. Note
+  // that as the search goes on, this graph will contains new binary clauses
+  // learned by the SAT engine.
+  optional bool add_clique_cuts = 172 [default = true];
+
+  // Whether we generate RLT cuts. This is still experimental but can help on
+  // binary problem with a lot of clauses of size 3.
+  optional bool add_rlt_cuts = 279 [default = true];
+
+  // Cut generator for all diffs can add too many cuts for large all_diff
+  // constraints. This parameter restricts the large all_diff constraints to
+  // have a cut generator.
+  optional int32 max_all_diff_cut_size = 148 [default = 64];
+
+  // For the lin max constraints, generates the cuts described in "Strong
+  // mixed-integer programming formulations for trained neural networks" by Ross
+  // Anderson et. (https://arxiv.org/pdf/1811.01988.pdf)
+  optional bool add_lin_max_cuts = 152 [default = true];
+
+  // In the integer rounding procedure used for MIR and Gomory cut, the maximum
+  // "scaling" we use (must be positive). The lower this is, the lower the
+  // integer coefficients of the cut will be. Note that cut generated by lower
+  // values are not necessarily worse than cut generated by larger value. There
+  // is no strict dominance relationship.
+  //
+  // Setting this to 2 result in the "strong fractional rouding" of Letchford
+  // and Lodi.
+  optional int32 max_integer_rounding_scaling = 119 [default = 600];
+
+  // If true, we start by an empty LP, and only add constraints not satisfied
+  // by the current LP solution batch by batch. A constraint that is only added
+  // like this is known as a "lazy" constraint in the literature, except that we
+  // currently consider all constraints as lazy here.
+  optional bool add_lp_constraints_lazily = 112 [default = true];
+
+  // Even at the root node, we do not want to spend too much time on the LP if
+  // it is "difficult". So we solve it in "chunks" of that many iterations. The
+  // solve will be continued down in the tree or the next time we go back to the
+  // root node.
+  optional int32 root_lp_iterations = 227 [default = 2000];
+
+  // While adding constraints, skip the constraints which have orthogonality
+  // less than 'min_orthogonality_for_lp_constraints' with already added
+  // constraints during current call. Orthogonality is defined as 1 -
+  // cosine(vector angle between constraints). A value of zero disable this
+  // feature.
+  optional double min_orthogonality_for_lp_constraints = 115 [default = 0.05];
+
+  // Max number of time we perform cut generation and resolve the LP at level 0.
+  optional int32 max_cut_rounds_at_level_zero = 154 [default = 1];
+
+  // If a constraint/cut in LP is not active for that many consecutive OPTIMAL
+  // solves, remove it from the LP. Note that it might be added again later if
+  // it become violated by the current LP solution.
+  optional int32 max_consecutive_inactive_count = 121 [default = 100];
+
+  // These parameters are similar to sat clause management activity parameters.
+  // They are effective only if the number of generated cuts exceed the storage
+  // limit. Default values are based on a few experiments on miplib instances.
+  optional double cut_max_active_count_value = 155 [default = 1e10];
+  optional double cut_active_count_decay = 156 [default = 0.8];
+
+  // Target number of constraints to remove during cleanup.
+  optional int32 cut_cleanup_target = 157 [default = 1000];
+
+  // Add that many lazy constraints (or cuts) at once in the LP. Note that at
+  // the beginning of the solve, we do add more than this.
+  optional int32 new_constraints_batch_size = 122 [default = 50];
+
+  // All the "exploit_*" parameters below work in the same way: when branching
+  // on an IntegerVariable, these parameters affect the value the variable is
+  // branched on. Currently the first heuristic that triggers win in the order
+  // in which they appear below.
+  //
+  // TODO(user): Maybe do like for the restart algorithm, introduce an enum
+  // and a repeated field that control the order on which these are applied?
+
+  // If true and the Lp relaxation of the problem has an integer optimal
+  // solution, try to exploit it. Note that since the LP relaxation may not
+  // contain all the constraints, such a solution is not necessarily a solution
+  // of the full problem.
+  optional bool exploit_integer_lp_solution = 94 [default = true];
+
+  // If true and the Lp relaxation of the problem has a solution, try to exploit
+  // it. This is same as above except in this case the lp solution might not be
+  // an integer solution.
+  optional bool exploit_all_lp_solution = 116 [default = true];
+
+  // When branching on a variable, follow the last best solution value.
+  optional bool exploit_best_solution = 130 [default = false];
+
+  // When branching on a variable, follow the last best relaxation solution
+  // value. We use the relaxation with the tightest bound on the objective as
+  // the best relaxation solution.
+  optional bool exploit_relaxation_solution = 161 [default = false];
+
+  // When branching an a variable that directly affect the objective,
+  // branch on the value that lead to the best objective first.
+  optional bool exploit_objective = 131 [default = true];
+
+  // Infer products of Boolean or of Boolean time IntegerVariable from the
+  // linear constrainst in the problem. This can be used in some cuts, altough
+  // for now we don't really exploit it.
+  optional bool detect_linearized_product = 277 [default = false];
+
+  // This should be better on integer problems.
+  // But it is still work in progress.
+  optional bool use_new_integer_conflict_resolution = 336 [default = false];
+
+  // If true, and during integer conflict resolution (icr) the 1-UIP is an
+  // integer literal for which we do not have an associated Boolean. Create one.
+  optional bool create_1uip_boolean_during_icr = 341 [default = true];
+
+  // ==========================================================================
+  // MIP -> CP-SAT (i.e. IP with integer coeff) conversion parameters that are
+  // used by our automatic "scaling" algorithm.
+  //
+  // Note that it is hard to do a meaningful conversion automatically and if
+  // you have a model with continuous variables, it is best if you scale the
+  // domain of the variable yourself so that you have a relevant precision for
+  // the application at hand. Same for the coefficients and constraint bounds.
+  // ==========================================================================
+
+  // We need to bound the maximum magnitude of the variables for CP-SAT, and
+  // that is the bound we use. If the MIP model expect larger variable value in
+  // the solution, then the converted model will likely not be relevant.
+  optional double mip_max_bound = 124 [default = 1e7];
+
+  // All continuous variable of the problem will be multiplied by this factor.
+  // By default, we don't do any variable scaling and rely on the MIP model to
+  // specify continuous variable domain with the wanted precision.
+  optional double mip_var_scaling = 125 [default = 1.0];
+
+  // If this is false, then mip_var_scaling is only applied to variables with
+  // "small" domain. If it is true, we scale all floating point variable
+  // independenlty of their domain.
+  optional bool mip_scale_large_domain = 225 [default = false];
+
+  // If true, some continuous variable might be automatically scaled. For now,
+  // this is only the case where we detect that a variable is actually an
+  // integer multiple of a constant. For instance, variables of the form k * 0.5
+  // are quite frequent, and if we detect this, we will scale such variable
+  // domain by 2 to make it implied integer.
+  optional bool mip_automatically_scale_variables = 166 [default = true];
+
+  // If one try to solve a MIP model with CP-SAT, because we assume all variable
+  // to be integer after scaling, we will not necessarily have the correct
+  // optimal. Note however that all feasible solutions are valid since we will
+  // just solve a more restricted version of the original problem.
+  //
+  // This parameters is here to prevent user to think the solution is optimal
+  // when it might not be. One will need to manually set this to false to solve
+  // a MIP model where the optimal might be different.
+  //
+  // Note that this is tested after some MIP presolve steps, so even if not
+  // all original variable are integer, we might end up with a pure IP after
+  // presolve and after implied integer detection.
+  optional bool only_solve_ip = 222 [default = false];
+
+  // When scaling constraint with double coefficients to integer coefficients,
+  // we will multiply by a power of 2 and round the coefficients. We will choose
+  // the lowest power such that we have no potential overflow (see
+  // mip_max_activity_exponent) and the worst case constraint activity error
+  // does not exceed this threshold.
+  //
+  // Note that we also detect constraint with rational coefficients and scale
+  // them accordingly when it seems better instead of using a power of 2.
+  //
+  // We also relax all constraint bounds by this absolute value. For pure
+  // integer constraint, if this value if lower than one, this will not change
+  // anything. However it is needed when scaling MIP problems.
+  //
+  // If we manage to scale a constraint correctly, the maximum error we can make
+  // will be twice this value (once for the scaling error and once for the
+  // relaxed bounds). If we are not able to scale that well, we will display
+  // that fact but still scale as best as we can.
+  optional double mip_wanted_precision = 126 [default = 1e-6];
+
+  // To avoid integer overflow, we always force the maximum possible constraint
+  // activity (and objective value) according to the initial variable domain to
+  // be smaller than 2 to this given power. Because of this, we cannot always
+  // reach the "mip_wanted_precision" parameter above.
+  //
+  // This can go as high as 62, but some internal algo currently abort early if
+  // they might run into integer overflow, so it is better to keep it a bit
+  // lower than this.
+  optional int32 mip_max_activity_exponent = 127 [default = 53];
+
+  // As explained in mip_precision and mip_max_activity_exponent, we cannot
+  // always reach the wanted precision during scaling. We use this threshold to
+  // enphasize in the logs when the precision seems bad.
+  optional double mip_check_precision = 128 [default = 1e-4];
+
+  // Even if we make big error when scaling the objective, we can always derive
+  // a correct lower bound on the original objective by using the exact lower
+  // bound on the scaled integer version of the objective. This should be fast,
+  // but if you don't care about having a precise lower bound, you can turn it
+  // off.
+  optional bool mip_compute_true_objective_bound = 198 [default = true];
+
+  // Any finite values in the input MIP must be below this threshold, otherwise
+  // the model will be reported invalid. This is needed to avoid floating point
+  // overflow when evaluating bounds * coeff for instance. We are a bit more
+  // defensive, but in practice, users shouldn't use super large values in a
+  // MIP.
+  optional double mip_max_valid_magnitude = 199 [default = 1e20];
+
+  // By default, any variable/constraint bound with a finite value and a
+  // magnitude greater than the mip_max_valid_magnitude will result with a
+  // invalid model. This flags change the behavior such that such bounds are
+  // silently transformed to +∞ or -∞.
+  //
+  // It is recommended to keep it at false, and create valid bounds.
+  optional bool mip_treat_high_magnitude_bounds_as_infinity = 278
+      [default = false];
+
+  // Any value in the input mip with a magnitude lower than this will be set to
+  // zero. This is to avoid some issue in LP presolving.
+  optional double mip_drop_tolerance = 232 [default = 1e-16];
+
+  // When solving a MIP, we do some basic floating point presolving before
+  // scaling the problem to integer to be handled by CP-SAT. This control how
+  // much of that presolve we do. It can help to better scale floating point
+  // model, but it is not always behaving nicely.
+  optional int32 mip_presolve_level = 261 [default = 2];
+}

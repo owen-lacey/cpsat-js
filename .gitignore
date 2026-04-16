@@ -1,0 +1,16 @@
+node_modules/
+dist/
+build/
+src/generated/
+*.tsbuildinfo
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Environment
+.env
+.env.local
