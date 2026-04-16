@@ -1,8 +1,11 @@
 node_modules/
 dist/
 build/
+build.stale/
 src/generated/
 *.tsbuildinfo
+*.tgz
+.claude/
 
 # OS
 .DS_Store

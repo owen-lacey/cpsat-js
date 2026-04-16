@@ -49,12 +49,13 @@ target_link_libraries(cpsat_wasm PRIVATE ortools::ortools)
 if(EMSCRIPTEN)
   set_target_properties(cpsat_wasm PROPERTIES
     OUTPUT_NAME "cpsat"
-    SUFFIX ".js"
+    SUFFIX ".mjs"
   )
   target_link_options(cpsat_wasm PRIVATE
     -O3
     -flto
     "SHELL:-s MODULARIZE=1"
+    "SHELL:-s EXPORT_ES6=1"
     "SHELL:-s EXPORT_NAME='createCpSatModule'"
     "SHELL:-s ALLOW_MEMORY_GROWTH=1"
     "SHELL:-s STACK_SIZE=4194304"

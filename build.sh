@@ -30,8 +30,5 @@ echo "=== Stage 3: Build ==="
 NPROC=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 emmake ninja -C "$BUILD_DIR" cpsat_wasm -j"$NPROC"
 
-echo "=== Stage 4: Rename JS glue to .cjs for ESM compatibility ==="
-cp "$BUILD_DIR/cpsat.js" "$BUILD_DIR/cpsat.cjs"
-
 echo "=== Done ==="
-ls -lh "$BUILD_DIR"/cpsat.{cjs,wasm} 2>/dev/null || echo "Warning: output files not found"
+ls -lh "$BUILD_DIR"/cpsat.{mjs,wasm} 2>/dev/null || echo "Warning: output files not found"

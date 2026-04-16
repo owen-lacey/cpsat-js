@@ -13,4 +13,4 @@ COPY src/cpp/ src/cpp/
 RUN ./build.sh
 
 # Copy output for extraction
-RUN mkdir -p /output && cp build/cpsat.js build/cpsat.wasm /output/
+RUN mkdir -p /output && cp build/cpsat.mjs build/cpsat.wasm /output/

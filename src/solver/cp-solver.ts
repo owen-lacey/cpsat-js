@@ -124,26 +124,16 @@ export class CpSolver {
 async function loadWasmFactory(
   locateFile?: (path: string) => string,
 ): Promise<(options?: Record<string, unknown>) => Promise<CpSatModule>> {
-  try {
-    // Emscripten outputs CommonJS; use createRequire in ESM context
-    const { createRequire } = await import('node:module');
-    const { fileURLToPath } = await import('node:url');
-    const { dirname, join } = await import('node:path');
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = dirname(__filename);
-    const require = createRequire(import.meta.url);
-    const factory = require(join(__dirname, '..', '..', 'build', 'cpsat.cjs'));
-    if (typeof factory !== 'function') {
-      throw new Error('WASM module did not export a factory function');
-    }
-    if (locateFile) {
-      return () => factory({ locateFile });
-    }
-    return factory;
-  } catch (err) {
-    throw new Error(
-      'Failed to load cpsat.wasm. Ensure the WASM build has been completed. ' +
-      `Run \`npm run build:wasm\` to compile the WASM binary. (${err})`,
-    );
+  const wasmUrl = new URL('../../build/cpsat.wasm', import.meta.url).href;
+  // @ts-expect-error Emscripten-generated ESM glue; no TS declarations.
+  const glue = await import('../../build/cpsat.mjs');
+  const factory = glue.default as
+    | ((options?: Record<string, unknown>) => Promise<CpSatModule>)
+    | undefined;
+  if (typeof factory !== 'function') {
+    throw new Error('cpsat glue did not export a factory function');
   }
+  const resolvedLocate =
+    locateFile ?? ((path: string) => (path.endsWith('.wasm') ? wasmUrl : path));
+  return (options) => factory({ ...options, locateFile: resolvedLocate });
 }
