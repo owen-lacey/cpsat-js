@@ -5,8 +5,22 @@ WebAssembly port of Google OR-Tools' CP-SAT constraint programming solver. Runs 
 ## Install
 
 ```bash
-npm install cpsat-js@beta
+npm install cpsat-js
 ```
+
+## Using with Vite
+
+Add `cpsat-js` to `optimizeDeps.exclude` in your `vite.config.ts`:
+
+```ts
+export default defineConfig({
+  optimizeDeps: {
+    exclude: ['cpsat-js'],
+  },
+});
+```
+
+Without this, Vite's dep pre-bundler (esbuild) copies the package into `node_modules/.vite/deps/` and breaks the relative `new URL('../../build/cpsat.wasm', import.meta.url)` lookup — the dev server then returns the SPA HTML fallback for the WASM request, and Emscripten fails with `CompileError: expected magic word 00 61 73 6d, found 3c 21 64 6f` (`<!do`... from the HTML). Excluding the package routes it through Vite's main asset pipeline, which rewrites the URL correctly. Production builds (`vite build`) don't use the pre-bundler and work without this flag, but it's harmless to set in both.
 
 ## Quick Start
 

@@ -1,6 +1,6 @@
 {
   "name": "cpsat-js",
-  "version": "0.1.0-beta.2",
+  "version": "1.0.0",
   "description": "WebAssembly port of Google OR-Tools CP-SAT constraint programming solver",
   "type": "module",
   "main": "dist/index.js",
