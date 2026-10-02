@@ -19,6 +19,10 @@
     "./portable": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.portable.js"
+    },
+    "./proto": {
+      "types": "./dist/proto.d.ts",
+      "default": "./dist/proto.js"
     }
   },
   "files": [

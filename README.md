@@ -275,6 +275,23 @@ What `onSolution` receives: everything `CpSolverResult` has, including `value()`
 The shape is deliberately the same as a final result, so an incumbent and an answer can
 be read by the same code.
 
+### `cpsat-js/proto`
+
+The protobuf boundary, for solving a model somewhere other than this WASM — native
+OR-Tools reads the same `CpModelProto` bytes:
+
+```ts
+import { toBinary, fromBinary, CpModelProtoSchema, CpSolverResponseSchema } from 'cpsat-js/proto';
+
+const bytes = toBinary(CpModelProtoSchema, model.toProto());
+// ...solve `bytes` elsewhere, get response bytes back...
+const response = fromBinary(CpSolverResponseSchema, responseBytes);
+```
+
+Exports `CpModelProtoSchema`, `CpSolverResponseSchema` and `SatParametersSchema`, with
+`create`/`toBinary`/`fromBinary` re-exported from `@bufbuild/protobuf` so encoding uses the
+same runtime the schemas were generated against.
+
 ## Architecture
 
 - **TypeScript wrapper** builds a `CpModelProto` via a fluent API
