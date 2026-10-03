@@ -4,6 +4,8 @@ import {
   CpModelProtoSchema,
   type ConstraintProto,
   ConstraintProtoSchema,
+  type LinearExpressionProto,
+  LinearArgumentProtoSchema,
   IntegerVariableProtoSchema,
   AllDifferentConstraintProtoSchema,
   BoolArgumentProtoSchema,
@@ -189,6 +191,69 @@ export class CpModel {
     return new Constraint(ct);
   }
 
+  /** target == exprs[0] * exprs[1] * ... — each expression may use at most one variable */
+  addMultiplicationEquality(target: LinearExprLike, exprs: LinearExprLike[]): Constraint {
+    const method = 'addMultiplicationEquality';
+    const ct = this.addConstraintProto();
+    ct.constraint = {
+      case: 'intProd',
+      value: create(LinearArgumentProtoSchema, {
+        target: toAffineProto(method, target),
+        exprs: exprs.map((e) => toAffineProto(method, e)),
+      }),
+    };
+    return new Constraint(ct);
+  }
+
+  /** target == num / denom, rounded towards zero — each expression may use at most one variable */
+  addDivisionEquality(target: LinearExprLike, num: LinearExprLike, denom: LinearExprLike): Constraint {
+    const method = 'addDivisionEquality';
+    const ct = this.addConstraintProto();
+    ct.constraint = {
+      case: 'intDiv',
+      value: create(LinearArgumentProtoSchema, {
+        target: toAffineProto(method, target),
+        exprs: [toAffineProto(method, num), toAffineProto(method, denom)],
+      }),
+    };
+    return new Constraint(ct);
+  }
+
+  /** target == expr % mod — each expression may use at most one variable, and mod must be > 0 */
+  addModuloEquality(target: LinearExprLike, expr: LinearExprLike, mod: LinearExprLike): Constraint {
+    const method = 'addModuloEquality';
+    const ct = this.addConstraintProto();
+    ct.constraint = {
+      case: 'intMod',
+      value: create(LinearArgumentProtoSchema, {
+        target: toAffineProto(method, target),
+        exprs: [toAffineProto(method, expr), toAffineProto(method, mod)],
+      }),
+    };
+    return new Constraint(ct);
+  }
+
+  /** target == max(exprs) */
+  addMaxEquality(target: LinearExprLike, exprs: LinearExprLike[]): Constraint {
+    const ct = this.addConstraintProto();
+    ct.constraint = {
+      case: 'linMax',
+      value: create(LinearArgumentProtoSchema, {
+        target: toLinearExpr(target).toProto(),
+        exprs: exprs.map((e) => toLinearExpr(e).toProto()),
+      }),
+    };
+    return new Constraint(ct);
+  }
+
+  /** target == min(exprs), encoded as -target == max(-exprs) */
+  addMinEquality(target: LinearExprLike, exprs: LinearExprLike[]): Constraint {
+    return this.addMaxEquality(
+      toLinearExpr(target).negate(),
+      exprs.map((e) => toLinearExpr(e).negate()),
+    );
+  }
+
   // ── Objective ──
 
   minimize(expr: LinearExprLike): void {
@@ -260,4 +325,20 @@ export class CpModel {
       scalingFactor: maximize ? -1.0 : 1.0,
     });
   }
+}
+
+/**
+ * CP-SAT rejects intProd, intDiv and intMod when any expression has more than one
+ * variable, but only as MODEL_INVALID at solve time. Failing here instead puts the
+ * stack trace at the call that built the bad constraint.
+ */
+function toAffineProto(method: string, value: LinearExprLike): LinearExpressionProto {
+  const expr = toLinearExpr(value);
+  if (expr.terms.size > 1) {
+    throw new Error(
+      `${method}: each expression may use at most one variable, but one uses ${expr.terms.size}. ` +
+        'Add an intermediate variable, constrain it to equal the expression, and pass that instead.',
+    );
+  }
+  return expr.toProto();
 }

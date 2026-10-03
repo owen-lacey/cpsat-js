@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { toBinary, fromBinary } from '@bufbuild/protobuf';
 import { CpModel } from '../../src/model/cp-model.js';
+import type { IntVar } from '../../src/model/int-var.js';
 import {
   CpModelProtoSchema,
 } from '../../src/generated/cp_model_pb.js';
@@ -235,6 +236,84 @@ describe('CpModel', () => {
 
     model.clearHints();
     expect(model.toProto().solutionHint).toBeUndefined();
+  });
+
+  it('adds multiplication constraints over affine expressions', () => {
+    const model = new CpModel();
+    const x = model.newIntVar(0, 10, 'x');
+    const y = model.newIntVar(0, 100, 'y');
+
+    model.addMultiplicationEquality(y, [x, x.plus(1)]);
+
+    const ct = model.toProto().constraints[0].constraint;
+    expect(ct.case).toBe('intProd');
+    if (ct.case === 'intProd') {
+      expect(ct.value.target?.vars).toEqual([1]);
+      expect(ct.value.exprs).toHaveLength(2);
+      expect(ct.value.exprs[1].offset).toBe(1n);
+    }
+  });
+
+  it('adds division and modulo constraints with two operands', () => {
+    const model = new CpModel();
+    const x = model.newIntVar(0, 20, 'x');
+    const q = model.newIntVar(0, 20, 'q');
+    const r = model.newIntVar(0, 20, 'r');
+
+    model.addDivisionEquality(q, x, 5);
+    model.addModuloEquality(r, x, 5);
+
+    const [div, mod] = model.toProto().constraints.map((c) => c.constraint);
+    expect(div.case).toBe('intDiv');
+    expect(mod.case).toBe('intMod');
+    if (div.case === 'intDiv' && mod.case === 'intMod') {
+      expect(div.value.exprs[1].offset).toBe(5n);
+      expect(mod.value.exprs[1].offset).toBe(5n);
+    }
+  });
+
+  it.each([
+    ['addMultiplicationEquality', (m: CpModel, a: IntVar, b: IntVar) => m.addMultiplicationEquality(a, [a.plus(b), b])],
+    ['addDivisionEquality', (m: CpModel, a: IntVar, b: IntVar) => m.addDivisionEquality(a.plus(b), a, 2)],
+    ['addModuloEquality', (m: CpModel, a: IntVar, b: IntVar) => m.addModuloEquality(a, a.plus(b), 3)],
+  ])('%s throws on an expression with more than one variable', (method, build) => {
+    const model = new CpModel();
+    const a = model.newIntVar(0, 10, 'a');
+    const b = model.newIntVar(1, 10, 'b');
+
+    expect(() => build(model, a, b)).toThrow(`${method}: each expression may use at most one variable`);
+  });
+
+  it('adds max constraints over general linear expressions', () => {
+    const model = new CpModel();
+    const x = model.newIntVar(0, 10, 'x');
+    const y = model.newIntVar(0, 10, 'y');
+    const m = model.newIntVar(0, 20, 'm');
+
+    model.addMaxEquality(m, [x.plus(y), x, 3]);
+
+    const ct = model.toProto().constraints[0].constraint;
+    expect(ct.case).toBe('linMax');
+    if (ct.case === 'linMax') {
+      expect(ct.value.exprs[0].vars).toEqual([0, 1]);
+      expect(ct.value.exprs[2].offset).toBe(3n);
+    }
+  });
+
+  it('encodes min as max over negated expressions', () => {
+    const model = new CpModel();
+    const x = model.newIntVar(0, 10, 'x');
+    const m = model.newIntVar(0, 10, 'm');
+
+    model.addMinEquality(m, [x, 4]);
+
+    const ct = model.toProto().constraints[0].constraint;
+    expect(ct.case).toBe('linMax');
+    if (ct.case === 'linMax') {
+      expect(ct.value.target?.coeffs).toEqual([-1n]);
+      expect(ct.value.exprs[0].coeffs).toEqual([-1n]);
+      expect(ct.value.exprs[1].offset).toBe(-4n);
+    }
   });
 
   it('serializes to and from binary protobuf', () => {

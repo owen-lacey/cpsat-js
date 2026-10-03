@@ -89,6 +89,8 @@ if (result.status === CpSolverStatus.OPTIMAL) {
 - `addBoolOr([...literals])` / `addBoolAnd([...literals])` — boolean logic
 - `addNoOverlap([...intervals])` — scheduling / disjunctive constraints
 - `addCircuit([[tail, head, literal], ...])` — routing / TSP
+- `addMultiplicationEquality`, `addDivisionEquality`, `addModuloEquality` — products, integer division, remainders
+- `addMaxEquality` / `addMinEquality` — maximum / minimum of expressions
 - `minimize(expr)` / `maximize(expr)` — optimization objectives
 - `.onlyEnforceIf(literal)` — conditional enforcement (half-reification)
 
@@ -164,8 +166,28 @@ Builder for constraint programming models.
 - `addBoolAnd(literals): Constraint`
 - `addNoOverlap(intervals): Constraint`
 - `addCircuit(arcs): Constraint`
+- `addMultiplicationEquality(target, exprs): Constraint` — `target == exprs[0] * exprs[1] * ...`
+- `addDivisionEquality(target, num, denom): Constraint` — `target == num / denom`, rounded towards zero
+- `addModuloEquality(target, expr, mod): Constraint` — `target == expr % mod`, with `mod > 0`
+- `addMaxEquality(target, exprs): Constraint` / `addMinEquality(target, exprs): Constraint`
 - `minimize(expr)` / `maximize(expr)`
 - `addHint(variable, value)` / `clearHints()` — suggest where the search should start
+
+#### Non-linear constraints
+
+CP-SAT only accepts multiplication, division and modulo over expressions with at most one variable, such as `x`, `x.times(2)` or `x.minus(3)`. Passing `x.plus(y)` throws when the constraint is built. To use it, introduce an intermediate variable:
+
+```ts
+const x = model.newIntVar(0, 10, 'x');
+const y = model.newIntVar(0, 10, 'y');
+const sum = model.newIntVar(0, 20, 'sum');
+const sq = model.newIntVar(0, 400, 'sq');
+
+model.add(sum.equals(x.plus(y)));
+model.addMultiplicationEquality(sq, [sum, sum]); // sq == (x + y)^2
+```
+
+`addMaxEquality` and `addMinEquality` accept any linear expression.
 
 #### Hints
 
