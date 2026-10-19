@@ -5,19 +5,16 @@
 // one is still the answer, the objective still matches. So the count is asserted
 // here, and the model is chosen to make a long chain of incumbents unavoidable.
 //
-// It is a weighted max-cut on 20 nodes, built from a seeded generator so it is the
-// same model on every run. Measured: 15 improving solutions at one worker and 12 at
-// eight, both proving 263 optimal, in well under a second either way. A knapsack —
-// the obvious first choice — is useless here: CP-SAT cracks one in presolve and
-// reports exactly one solution no matter how many items it has.
+// It is the weighted max-cut from ./models, whose chain of incumbents is long enough
+// to count.
 import { describe, it, expect, beforeAll } from 'vitest';
 import {
   CpModel,
   CpSolver,
   CpSolverStatus,
-  type BoolVar,
   type CpSolverSolution,
 } from '../../src/index.threaded.js';
+import { maxCut, MAX_CUT_OPTIMUM as OPTIMUM } from './models.js';
 
 describe('Solution callbacks', () => {
   let solver: CpSolver;
@@ -25,47 +22,6 @@ describe('Solution callbacks', () => {
   beforeAll(async () => {
     solver = await CpSolver.create();
   });
-
-  /** A seeded generator, so the model below is a fixed model and not a random one. */
-  const rand = (seed: number) => {
-    let s = seed;
-    return (n: number) => {
-      s = (s * 1103515245 + 12345) % 2147483648;
-      return s % n;
-    };
-  };
-
-  /**
-   * Weighted max-cut: split the nodes in two, and score every edge whose ends land on
-   * opposite sides. Hard enough that CP-SAT has to climb to the answer rather than
-   * deduce it, which is the only property this file needs.
-   */
-  const maxCut = () => {
-    const nodes = 20;
-    const next = rand(11);
-    const model = new CpModel('max-cut');
-    const side = Array.from({ length: nodes }, (_, i) => model.newBoolVar(`side_${i}`));
-    const edges: { ends: [BoolVar, BoolVar]; weight: number; cut: BoolVar }[] = [];
-
-    for (let i = 0; i < nodes; i++) {
-      for (let d = 0; d < 3; d++) {
-        const j = (i + 1 + next(nodes - 1)) % nodes;
-        if (i === j) continue;
-        const cut = model.newBoolVar(`cut_${i}_${d}`);
-        // cut => the ends differ, both ways round.
-        model.add(cut.le(side[i].plus(side[j])));
-        model.add(cut.plus(side[i]).plus(side[j].toLinearExpr()).le(2));
-        edges.push({ ends: [side[i], side[j]], weight: next(9) + 1, cut });
-      }
-    }
-
-    model.maximize(
-      edges.reduce((acc, e) => acc.plus(e.cut.times(e.weight)), side[0].times(0)),
-    );
-    return { model, side, edges };
-  };
-
-  const OPTIMUM = 263;
 
   const collect = (numWorkers: number) => {
     const { model, side, edges } = maxCut();

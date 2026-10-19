@@ -221,6 +221,12 @@ Expression building methods:
 
 - `maxTimeInSeconds?: number` — wall-clock limit. On timeout you get `FEASIBLE` (best
   solution found) or `UNKNOWN` (none found yet), never a throw.
+- `maxDeterministicTime?: number` — work limit in CP-SAT's "deterministic seconds".
+  Machine-independent: at `numWorkers: 1`, a solve stopped by it stops at the same
+  point on any machine, so it can be replayed exactly from its inputs. Leave
+  `maxTimeInSeconds` unset (or generous) so the wall clock never fires first.
+- `randomSeed?: number` — seed for CP-SAT's randomised choices, default `1`. Only the
+  parallel portfolio draws on it; at `numWorkers: 1` every seed gives the same answer.
 - `numWorkers?: number` — parallel subsolvers, default `8`.
 
 > **Use `1` or `>= 6`, never in between.** `num_workers` selects *which* subsolver

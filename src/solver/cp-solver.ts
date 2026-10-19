@@ -62,6 +62,22 @@ export function setGlueLoader(loader: GlueLoader, threaded: boolean): void {
 export interface SolverParams {
   maxTimeInSeconds?: number;
   /**
+   * Limit on CP-SAT's internal work counter, in "deterministic seconds".
+   *
+   * Unlike `maxTimeInSeconds` this does not depend on the machine: a solve stopped by it
+   * stops at the same point everywhere, so it can be replayed exactly from its inputs.
+   * That holds only at `numWorkers: 1` — parallel workers race — and only when
+   * `maxTimeInSeconds` is unset or generous enough never to fire first.
+   */
+  maxDeterministicTime?: number;
+  /**
+   * Seed for CP-SAT's randomised choices. CP-SAT's default is 1.
+   *
+   * Only the parallel portfolio draws on it: at `numWorkers: 1` the default search
+   * makes no random choices, so every seed gives the same answer there.
+   */
+  randomSeed?: number;
+  /**
    * Number of parallel subsolvers. Defaults to 8.
    *
    * This is not a simple speed/resource dial: `num_workers` selects which subsolver
@@ -179,6 +195,12 @@ export class CpSolver {
     satParams.numWorkers = 8;
     if (params?.maxTimeInSeconds !== undefined) {
       satParams.maxTimeInSeconds = params.maxTimeInSeconds;
+    }
+    if (params?.maxDeterministicTime !== undefined) {
+      satParams.maxDeterministicTime = params.maxDeterministicTime;
+    }
+    if (params?.randomSeed !== undefined) {
+      satParams.randomSeed = params.randomSeed;
     }
     if (params?.numWorkers !== undefined) {
       satParams.numWorkers = params.numWorkers;
