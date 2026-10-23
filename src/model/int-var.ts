@@ -51,9 +51,7 @@ export class IntVar {
     const lhs = this.toLinearExpr();
     const rhs = toLinearExpr(other);
     const diff = lhs.minus(rhs);
-    // CP-SAT encodes != via domain: [INT_MIN, -1] U [1, INT_MAX]
-    // We'll handle this specially in CpModel.add()
-    return new BoundedLinearExpression(diff, BigInt(INT_VAR_MIN), BigInt(INT_VAR_MAX));
+    return BoundedLinearExpression.notEqualZero(diff);
   }
 
   /** expr <= other */

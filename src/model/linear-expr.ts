@@ -74,6 +74,14 @@ export class LinearExpr {
     return new BoundedLinearExpression(diff, 0n, 0n);
   }
 
+  /** expr != value — encoded as a domain with a hole at 0 */
+  notEquals(other: LinearExpr | number | bigint): BoundedLinearExpression {
+    const rhs = typeof other === 'number' || typeof other === 'bigint'
+      ? LinearExpr.fromConstant(other) : other;
+    const diff = this.minus(rhs);
+    return BoundedLinearExpression.notEqualZero(diff);
+  }
+
   /** expr <= value */
   le(other: LinearExpr | number | bigint): BoundedLinearExpression {
     const rhs = typeof other === 'number' || typeof other === 'bigint'
@@ -122,18 +130,29 @@ export class LinearExpr {
 }
 
 /**
- * Represents a bounded linear expression: lb <= expr <= ub.
+ * Represents a bounded linear expression: expr in domain.
+ * The domain is a flat list of sorted, disjoint intervals [lb0, ub0, lb1, ub1, ...];
+ * lb and ub are its overall bounds.
  * Created by comparison methods on LinearExpr/IntVar.
  */
 export class BoundedLinearExpression {
   readonly expr: LinearExpr;
   readonly lb: bigint;
   readonly ub: bigint;
+  readonly domain: readonly bigint[];
 
-  constructor(expr: LinearExpr, lb: bigint, ub: bigint) {
+  constructor(expr: LinearExpr, lb: bigint, ub: bigint, domain: readonly bigint[] = [lb, ub]) {
     this.expr = expr;
     this.lb = lb;
     this.ub = ub;
+    this.domain = domain;
+  }
+
+  /** expr != 0: [INT_MIN, -1] U [1, INT_MAX] */
+  static notEqualZero(expr: LinearExpr): BoundedLinearExpression {
+    return new BoundedLinearExpression(expr, -4503599627370496n, 4503599627370496n, [
+      -4503599627370496n, -1n, 1n, 4503599627370496n,
+    ]);
   }
 }
 
