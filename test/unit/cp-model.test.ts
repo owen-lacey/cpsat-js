@@ -71,6 +71,25 @@ describe('CpModel', () => {
     }
   });
 
+  it('adds notEquals constraints as a domain with a hole', () => {
+    const model = new CpModel();
+    const x = model.newIntVar(0, 2, 'x');
+    const y = model.newIntVar(0, 2, 'y');
+
+    model.add(x.notEquals(1));
+    model.add(x.plus(y).notEquals(y.times(2)));
+
+    const [c1, c2] = model.toProto().constraints.map((c) => c.constraint);
+    expect(c1.case).toBe('linear');
+    expect(c2.case).toBe('linear');
+    if (c1.case === 'linear' && c2.case === 'linear') {
+      // x - 1 != 0  =>  x in [MIN + 1, 0] U [2, MAX + 1]
+      expect(c1.value.domain).toEqual([-(2n ** 52n) + 1n, 0n, 2n, 2n ** 52n + 1n]);
+      // x - y != 0
+      expect(c2.value.domain).toEqual([-(2n ** 52n), -1n, 1n, 2n ** 52n]);
+    }
+  });
+
   it('adds allDifferent constraints', () => {
     const model = new CpModel();
     const vars = Array.from({ length: 4 }, (_, i) =>

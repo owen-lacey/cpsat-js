@@ -105,7 +105,7 @@ export class CpModel {
 
   // ── Constraints ──
 
-  /** Add a bounded linear constraint: lb <= expr <= ub */
+  /** Add a bounded linear constraint: expr in domain (lb <= expr <= ub for a single interval) */
   add(bounded: BoundedLinearExpression): Constraint {
     const ct = this.addConstraintProto();
     const vars: number[] = [];
@@ -119,7 +119,7 @@ export class CpModel {
       value: create(LinearConstraintProtoSchema, {
         vars,
         coeffs,
-        domain: [bounded.lb - bounded.expr.offset, bounded.ub - bounded.expr.offset],
+        domain: bounded.domain.map((d) => d - bounded.expr.offset),
       }),
     };
     return new Constraint(ct);
